@@ -18,7 +18,6 @@ public with sharing class LogEventTriggerService {
     handleResults(results, context == null ? 0 : context.retries);
   }
 
-  @TestVisible
   private static void handleResults(
     List<Database.SaveResult> results,
     Integer retries

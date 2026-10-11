@@ -4,9 +4,6 @@ public with sharing class SchemaHelper {
   private static Map<String, Schema.DescribeFieldResult> resolvedFields = new Map<String, Schema.DescribeFieldResult>();
   private static Map<String, String> normalizedPaths = new Map<String, String>();
 
-  @TestVisible
-  private static Integer globalDescribeCalls = 0;
-
   public static Schema.SObjectType getSObjectType(String objectName) {
     if (String.isBlank(objectName)) {
       throw new ConfigReportException('Object name is required.');
@@ -64,20 +61,10 @@ public with sharing class SchemaHelper {
     return resolveFieldPath(objectName, path).isSortable();
   }
 
-  @TestVisible
-  private static void resetCache() {
-    objectTypes = null;
-    accessibleFields.clear();
-    resolvedFields.clear();
-    normalizedPaths.clear();
-    globalDescribeCalls = 0;
-  }
-
   private static void loadObjectTypes() {
     if (objectTypes != null)
       return;
     objectTypes = new Map<String, Schema.SObjectType>();
-    globalDescribeCalls++;
     Map<String, Schema.SObjectType> globalTypes = Schema.getGlobalDescribe();
     for (String name : globalTypes.keySet()) {
       objectTypes.put(name.toLowerCase(), globalTypes.get(name));

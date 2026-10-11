@@ -1,8 +1,6 @@
 public with sharing class ConfigReportService {
   private static final Integer FALLBACK_MAX_ROWS = 100;
   private static Map<String, Report_Definition__mdt> definitionCache = new Map<String, Report_Definition__mdt>();
-  @TestVisible
-  private static Map<String, Report_Definition__mdt> definitionOverrides = new Map<String, Report_Definition__mdt>();
 
   public static ReportResult run(
     String definitionName,
@@ -66,8 +64,6 @@ public with sharing class ConfigReportService {
 
   public static Report_Definition__mdt getDefinition(String name) {
     String key = name.trim().toLowerCase();
-    if (Test.isRunningTest() && definitionOverrides.containsKey(key))
-      return definitionOverrides.get(key);
     if (!definitionCache.containsKey(key))
       definitionCache.put(key, Report_Definition__mdt.getInstance(name.trim()));
     Report_Definition__mdt result = definitionCache.get(key);
@@ -76,7 +72,6 @@ public with sharing class ConfigReportService {
     return result;
   }
 
-  @TestVisible
   private static Integer getMaxRows() {
     ReportConfig__c setting = ReportConfig__c.getInstance();
     if (
@@ -127,7 +122,6 @@ public with sharing class ConfigReportService {
     }
   }
 
-  @TestVisible
   private static ReportResult invokeProcessor(
     String className,
     ReportResult result,

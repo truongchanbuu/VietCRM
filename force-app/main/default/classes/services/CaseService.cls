@@ -1,8 +1,4 @@
 public with sharing class CaseService {
-  @TestVisible
-  private static Integer reportQueryCount = 0;
-  @TestVisible
-  private static Integer eventPublishCount = 0;
   public static void escalateCriticalCases(List<Case> casesToEscalate) {
     List<Case> updates = new List<Case>();
     for (Case caseRecord : casesToEscalate) {
@@ -52,7 +48,6 @@ public with sharing class CaseService {
 
       for (Id accountId : accountIds)
         accountFilterValues.add(accountId);
-      reportQueryCount++;
 
       ReportResult report = ConfigReportService.run(
         'Open_Cases',
@@ -101,9 +96,7 @@ public with sharing class CaseService {
 
     List<Database.SaveResult> publishResults = EventBus.publish(events);
     for (Integer i = 0; i < publishResults.size(); i++) {
-      if (publishResults[i].isSuccess()) {
-        eventPublishCount++;
-      } else {
+      if (!publishResults[i].isSuccess()) {
         System.debug(
           LoggingLevel.ERROR,
           'CriticalCase event rejected for Case ' +

@@ -31,7 +31,7 @@ Hai payload tấn công trên bản cũ: chưa thể chạy/chụp vì class cũ
 - SchemaHelper cache global describe, object token, FLS field set theo user/object và resolved paths; giới hạn relationship tối đa ba cấp. Global describe được chọn vì yêu cầu cần tra object tùy ý, cache một lần/transaction và lookup case-insensitive; `describeSObjects()` hợp hơn khi tập object đầu vào nhỏ/biết trước.
 - GenericSelector chỉ nhận object request. Tên object/field/operator được validate bằng Describe/whitelist; chỉ dữ liệu bind vào `:bN`. `USER_MODE` bảo vệ CRUD/FLS và sharing. Type coercion theo DisplayType trước khi query.
 - CMDT giữ report definitions/feature flags vì cấu hình dùng chung, deploy được giữa org và không thay đổi theo user. Hierarchy Custom Setting giữ MaxRows vì giá trị có cấp org/profile/user. Thiếu setting fallback 100.
-- CMDT không insert được trong test; dùng `@TestVisible` override map trong FeatureFlag service và ConfigReportService. `Default_Filters__c` là phần mở rộng JSON để ba definition có default filter mà không hardcode business rules trong Apex.
+- Test Service/Case dùng CMDT thực tế: ConfigReport phải bật và Open_Cases phải được cấu hình hợp lệ. Không còn override map, counter hoặc quyền truy cập private dành riêng cho test. `Default_Filters__c` lưu default filter dạng JSON.
 - Type.forName chỉ chấp nhận class implement IReportPostProcessor. Cần giới hạn quyền sửa CMDT/processor config cho administrator đáng tin cậy; interface không phải sandbox chống mã Apex đã được deploy trong org.
 
 `runForLwc` không cacheable vì kết quả phụ thuộc dữ liệu/quyền hiện thời và cấu hình/flag theo transaction; ngoài ra, cache phía client có thể giữ dữ liệu PII hoặc kết quả cũ sau khi thay đổi quyền/flag.
@@ -59,7 +59,9 @@ binds = { b0: 100 }
 
 ## 4. Kết quả test
 
-Đã thêm test class cho Domain, Selector, Service/config, PII processor và bulk Case flow, gồm các nhóm T1–T15. Theo yêu cầu trước đó của bạn, không chạy test; do đó chưa có ảnh pass, coverage từng class, xác nhận test cũ xanh, hoặc kết quả PMD/Code Analyzer. Đây không phải báo cáo pass.
+Giữ test class cho Domain, Selector, Service, PII processor và bulk Case flow, gọi API public. Sau khi bỏ test overrides/counters, bộ test không còn chứng minh đủ T1–T15: chưa tự động kiểm chứng T8 (processor sai), T9 (đúng một global describe), T10 (ép flag ConfigReport tắt), T11 (đủ bốn tổ hợp trong một lần chạy), T12 (hierarchy limits qua Service), và phần đếm 200 event của T15. Test bulk vẫn assert một query qua Limits.getQueries(). Logger cũng bỏ hai test gọi trực tiếp private retry handler; giữ test public save(). Các test đã bỏ có thể phục hồi từ Git.
+
+Không chạy test theo yêu cầu của bạn. Chưa có ảnh pass, coverage từng class, xác nhận test cũ xanh hoặc kết quả PMD/Code Analyzer. Đây không phải báo cáo pass.
 
 ## 5. Giới hạn còn lại
 

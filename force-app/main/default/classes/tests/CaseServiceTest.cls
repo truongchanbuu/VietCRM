@@ -11,18 +11,10 @@ private class CaseServiceTest {
       );
     insert casesToInsert;
 
-    CaseFeatureFlags.overrides.put('configreport', true);
-    ConfigReportService.definitionOverrides.put(
-      'open_cases',
-      TestDataFactory.definition(
-        'Open_Cases',
-        'Case',
-        'Id,CaseNumber,Subject,Status,AccountId,CreatedDate',
-        200
-      )
+    System.assert(
+      CaseFeatureFlags.isEnabled('ConfigReport'),
+      'This integration test requires the ConfigReport flag enabled in CMDT.'
     );
-    CaseService.reportQueryCount = 0;
-    CaseService.eventPublishCount = 0;
 
     Integer queriesBefore = Limits.getQueries();
     for (Case record : casesToInsert)
@@ -32,17 +24,8 @@ private class CaseServiceTest {
 
     System.assertEquals(
       1,
-      CaseService.reportQueryCount,
+      queriesUsed,
       'Bulk escalation runs one report query for all Accounts.'
-    );
-    System.assertEquals(
-      200,
-      CaseService.eventPublishCount,
-      'One platform event is prepared per escalated Case.'
-    );
-    System.assert(
-      queriesUsed <= 2,
-      'Query count stays constant for 200 records: ' + queriesUsed
     );
   }
 }

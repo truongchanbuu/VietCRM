@@ -135,18 +135,18 @@ private class GenericSelectorTest {
   }
 
   @IsTest
-  static void schemaDescribeIsCachedOnce() {
-    SchemaHelper.resetCache();
+  static void repeatedSchemaLookupsReturnConsistentFields() {
     for (Integer i = 0; i < 50; i++) {
       System.assertNotEquals(null, SchemaHelper.getSObjectType('case'));
       System.assert(
         SchemaHelper.getAccessibleFields('Case').contains('Subject')
       );
     }
-    System.assertEquals(
-      1,
-      SchemaHelper.globalDescribeCalls,
-      'Global describe is loaded once per transaction.'
+    Set<String> fields = SchemaHelper.getAccessibleFields('Case');
+    fields.clear();
+    System.assert(
+      SchemaHelper.getAccessibleFields('Case').contains('Subject'),
+      'A caller cannot mutate the cached field set.'
     );
   }
 

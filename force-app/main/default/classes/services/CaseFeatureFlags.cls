@@ -1,14 +1,10 @@
 public with sharing class CaseFeatureFlags {
   private static Map<String, Boolean> cache = new Map<String, Boolean>();
-  @TestVisible
-  private static Map<String, Boolean> overrides = new Map<String, Boolean>();
 
   public static Boolean isEnabled(String flagName) {
     if (String.isBlank(flagName))
       return false;
     String key = flagName.trim().toLowerCase();
-    if (Test.isRunningTest() && overrides.containsKey(key))
-      return overrides.get(key);
     if (!cache.containsKey(key)) {
       Boolean enabled = false;
       for (FeatureFlag__mdt flag : FeatureFlag__mdt.getAll().values()) {
@@ -23,11 +19,5 @@ public with sharing class CaseFeatureFlags {
       cache.put(key, enabled);
     }
     return cache.get(key);
-  }
-
-  @TestVisible
-  private static void resetCache() {
-    cache.clear();
-    overrides.clear();
   }
 }
