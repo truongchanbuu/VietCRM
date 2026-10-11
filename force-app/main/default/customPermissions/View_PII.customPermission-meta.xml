@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>View PII</label>
+    <description
+  >Allows authorized users to view unmasked email and phone values when PII masking is disabled.</description>
+    <isLicensed>false</isLicensed>
+</CustomPermission>
