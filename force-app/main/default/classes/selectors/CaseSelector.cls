@@ -10,15 +10,16 @@ public with sharing class CaseSelector {
   };
 
   public static List<Case> getCasesPaged(Integer pageSize, Integer offsetSize) {
-    ReportRequest request = new ReportRequest();
+    DbQueryRequest request = new DbQueryRequest();
     request.objectName = 'Case';
     request.fields = BASE_FIELDS;
     request.filters = new List<FilterCondition>();
     request.orderBy = 'CreatedDate';
     request.orderDesc = true;
-    request.limitSize = pageSize;
-    request.offsetSize = offsetSize;
-    ReportResult result = GenericSelector.execute(
+    request.pageSize = pageSize;
+    request.page = new DbPageRequest();
+    request.page.offsetSize = offsetSize;
+    DbQueryResult result = DbQueryService.execute(
       request,
       pageSize == null || pageSize <= 0 ? 100 : pageSize
     );

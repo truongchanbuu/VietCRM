@@ -1,0 +1,22 @@
+public with sharing class DbQueryPlan {
+  public String selectFrom;
+  public List<String> whereParts;
+  public Map<String, Object> binds;
+  public String orderField;
+  public Boolean descending;
+  public String toSoql() {
+    String soql = selectFrom;
+    if (!whereParts.isEmpty())
+      soql += ' WHERE ' + String.join(whereParts, ' AND ');
+    String direction = descending ? ' DESC' : ' ASC';
+    soql += ' ORDER BY ' + orderField + direction;
+    if (!orderField.equalsIgnoreCase('Id'))
+      soql += ', Id' + direction;
+    return soql;
+  }
+  public String bindValue(Object value) {
+    String name = 'b' + binds.size();
+    binds.put(name, value);
+    return ':' + name;
+  }
+}

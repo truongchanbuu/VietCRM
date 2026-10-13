@@ -1,21 +1,57 @@
 public with sharing class SchemaHelper {
-  private static Map<String, Schema.SObjectType> objectTypes;
+  @TestVisible
+  private static Integer getTypeObjectsCallCount = 0;
+
+  private static Map<String, Schema.SObjectType> objectTypes = new Map<String, Schema.SObjectType>();
   private static Map<String, Set<String>> accessibleFields = new Map<String, Set<String>>();
   private static Map<String, Schema.DescribeFieldResult> resolvedFields = new Map<String, Schema.DescribeFieldResult>();
   private static Map<String, String> normalizedPaths = new Map<String, String>();
 
+  public static List<Schema.SObjectType> getSObjectTypes(
+    List<String> objectNames
+  ) {
+    if (objectNames == null || objectNames.isEmpty())
+      throw new DbQueryException('At least 1 object name required');
+
+    for (String objectName : objectNames)
+      if (String.isBlank(objectName))
+        throw new DbQueryException('Object name is required');
+
+    List<String> requestedKeys = new List<String>();
+    List<String> missingNames = new List<String>();
+    Set<String> missingKeys = new Set<String>();
+
+    for (String objectName : objectNames) {
+      String requestedName = objectName.trim();
+      String key = requestedName.toLowerCase();
+
+      requestedKeys.add(key);
+
+      if (!objectTypes.containsKey(key) && missingKeys.add(key)) {
+        missingNames.add(requestedName);
+      }
+    }
+
+    loadObjectTypes(missingNames);
+
+    List<Schema.SObjectType> results = new List<Schema.SObjectType>();
+
+    for (Integer i = 0; i < requestedKeys.size(); i++) {
+      String key = requestedKeys[i];
+      Schema.SObjectType objectType = objectTypes.get(key);
+
+      if (objectType == null) {
+        throw new DbQueryException('Unknown object: ' + objectNames[i]);
+      }
+
+      results.add(objectType);
+    }
+
+    return results;
+  }
+
   public static Schema.SObjectType getSObjectType(String objectName) {
-    if (String.isBlank(objectName)) {
-      throw new ConfigReportException('Object name is required.');
-    }
-    loadObjectTypes();
-    Schema.SObjectType result = objectTypes.get(
-      objectName.trim().toLowerCase()
-    );
-    if (result == null) {
-      throw new ConfigReportException('Unknown object: ' + objectName);
-    }
-    return result;
+    return getSObjectTypes(new List<String>{ objectName })[0];
   }
 
   public static Set<String> getAccessibleFields(String objectName) {
@@ -24,6 +60,7 @@ public with sharing class SchemaHelper {
       UserInfo.getUserId() +
       ':' +
       token.getDescribe().getName().toLowerCase();
+
     if (!accessibleFields.containsKey(key)) {
       Set<String> result = new Set<String>();
       for (
@@ -31,12 +68,13 @@ public with sharing class SchemaHelper {
           .fields.getMap()
           .values()
       ) {
-        if (fieldToken.getDescribe().isAccessible()) {
+        if (fieldToken.getDescribe().isAccessible())
           result.add(fieldToken.getDescribe().getName());
-        }
       }
+
       accessibleFields.put(key, result);
     }
+
     return new Set<String>(accessibleFields.get(key));
   }
 
@@ -61,32 +99,49 @@ public with sharing class SchemaHelper {
     return resolveFieldPath(objectName, path).isSortable();
   }
 
-  private static void loadObjectTypes() {
-    if (objectTypes != null)
+  private static void loadObjectTypes(List<String> objectNames) {
+    if (objectNames == null || objectNames.isEmpty())
       return;
-    objectTypes = new Map<String, Schema.SObjectType>();
-    Map<String, Schema.SObjectType> globalTypes = Schema.getGlobalDescribe();
-    for (String name : globalTypes.keySet()) {
-      objectTypes.put(name.toLowerCase(), globalTypes.get(name));
+
+    try {
+      getTypeObjectsCallCount++;
+      List<Schema.DescribeSObjectResult> descriptions = Schema.describeSObjects(
+        objectNames,
+        Schema.SObjectDescribeOptions.DEFERRED
+      );
+
+      for (Schema.DescribeSObjectResult description : descriptions) {
+        String normalizedKey = description.getName().toLowerCase();
+        objectTypes.put(normalizedKey, description.getSObjectType());
+      }
+    } catch (Exception e) {
+      throw new DbQueryException(
+        'Unable to resolve objects: ' +
+          String.join(objectNames, ', ') +
+          '. ' +
+          e.getMessage()
+      );
     }
   }
 
   private static void resolvePath(String objectName, String path) {
+    if (String.isBlank(objectName))
+      throw new DbQueryException('Object name is required');
+    if (String.isBlank(path))
+      throw new DbQueryException('Field path is required');
     String key = cacheKey(objectName, path);
     if (resolvedFields.containsKey(key))
       return;
-    if (String.isBlank(path)) {
-      throw new ConfigReportException('Field path is required.');
-    }
+
     List<String> segments = path.trim().split('\\.');
     if (segments.size() > 3) {
-      throw new ConfigReportException(
-        'Field path exceeds three segments: ' + path
-      );
+      throw new DbQueryException('Field path exceeds three segments: ' + path);
     }
+    Schema.SObjectType currentObjectType = getSObjectType(objectName);
     List<Schema.SObjectType> currentTypes = new List<Schema.SObjectType>{
-      getSObjectType(objectName)
+      currentObjectType
     };
+
     List<String> normalized = new List<String>();
     Schema.DescribeFieldResult finalDescribe;
     for (Integer i = 0; i < segments.size(); i++) {
@@ -94,6 +149,7 @@ public with sharing class SchemaHelper {
       Boolean isLast = i == segments.size() - 1;
       if (String.isBlank(segment))
         throw invalidSegment(path, segment);
+
       if (isLast) {
         for (Schema.SObjectType currentType : currentTypes) {
           Schema.SObjectField token = findField(currentType, segment);
@@ -117,14 +173,16 @@ public with sharing class SchemaHelper {
             currentType,
             segment
           );
+
           if (relationship == null || !relationship.isAccessible())
             throw invalidSegment(path, segment);
+
           if (
             canonicalRelationship != null &&
             canonicalRelationship != relationship.getRelationshipName()
-          ) {
+          )
             throw invalidSegment(path, segment);
-          }
+
           canonicalRelationship = relationship.getRelationshipName();
           for (
             Schema.SObjectType referenceType : relationship.getReferenceTo()
@@ -133,12 +191,15 @@ public with sharing class SchemaHelper {
               nextTypes.add(referenceType);
           }
         }
+
         if (nextTypes.isEmpty())
           throw invalidSegment(path, segment);
+
         normalized.add(canonicalRelationship);
         currentTypes = nextTypes;
       }
     }
+
     resolvedFields.put(key, finalDescribe);
     normalizedPaths.put(key, String.join(normalized, '.'));
   }
@@ -147,10 +208,10 @@ public with sharing class SchemaHelper {
     Schema.SObjectType token,
     String name
   ) {
-    for (String apiName : token.getDescribe().fields.getMap().keySet()) {
+    for (String apiName : token.getDescribe().fields.getMap().keySet())
       if (apiName.equalsIgnoreCase(name))
         return token.getDescribe().fields.getMap().get(apiName);
-    }
+
     return null;
   }
 
@@ -158,11 +219,10 @@ public with sharing class SchemaHelper {
     Schema.SObjectType token,
     String name
   ) {
-    for (
-      Schema.SObjectField fieldToken : token.getDescribe()
-        .fields.getMap()
-        .values()
-    ) {
+    List<Schema.SObjectField> fields = token.getDescribe()
+      .fields.getMap()
+      .values();
+    for (Schema.SObjectField fieldToken : fields) {
       Schema.DescribeFieldResult field = fieldToken.getDescribe();
       if (
         field.getType() == Schema.DisplayType.REFERENCE &&
@@ -171,6 +231,7 @@ public with sharing class SchemaHelper {
       )
         return field;
     }
+
     return null;
   }
 
@@ -182,11 +243,8 @@ public with sharing class SchemaHelper {
       String.valueOf(path).trim().toLowerCase();
   }
 
-  private static ConfigReportException invalidSegment(
-    String path,
-    String segment
-  ) {
-    return new ConfigReportException(
+  private static DbQueryException invalidSegment(String path, String segment) {
+    return new DbQueryException(
       'Invalid or inaccessible segment "' +
         segment +
         '" in path "' +
