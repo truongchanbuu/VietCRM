@@ -50,6 +50,7 @@ public with sharing class ApiWriter {
         'A valid REST response, status and envelope are required.'
       );
     }
+
     if (
       payload.success != (statusCode >= 200 && statusCode < 300) ||
       (payload.success && payload.error != null) ||
@@ -61,15 +62,18 @@ public with sharing class ApiWriter {
         'REST status and envelope must agree.'
       );
     }
-    Blob body = (statusCode == 204 ||
-      statusCode == 304)
-      ? null
-      : Blob.valueOf(JSON.serialize(payload));
+
+    Blob body;
+    if (statusCode != 204 && statusCode != 304) {
+      body = Blob.valueOf(JSON.serialize(payload));
+    }
+
     target.statusCode = statusCode;
     target.addHeader('Content-Type', 'application/json; charset=UTF-8');
     target.addHeader('Cache-Control', 'no-store');
     target.responseBody = body;
   }
+
   /**
    * Writes a successful data envelope; use void Apex REST methods to avoid double serialization.
    * @param target Explicit RestResponse
@@ -87,8 +91,10 @@ public with sharing class ApiWriter {
     payload.success = true;
     payload.data = data;
     payload.requestId = requestId;
+
     write(target, statusCode, payload);
   }
+
   /**
    * Checks the platform-supported status set before changing a response.
    * @param statusCode Desired status

@@ -3,30 +3,33 @@
 private class ApiRequestBuilderTest {
   @IsTest
   static void buildsNamedCredentialRequest() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.endpoint = 'callout:Partner_API/v1/items?existing=true';
-    value.method = ' post ';
-    value.body = '{"items":[1,2]}';
-    value.timeoutMillis = 120000;
-    value.headers.put('Content-Type', 'application/json');
-    value.queryParameters.put('q', 'a & b');
-    value.queryParameters.put('page', '1');
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.endpoint = 'callout:Partner_API/v1/items?existing=true';
+    request.method = ' post ';
+    request.body = '{"items":[1,2]}';
+    request.timeoutMillis = 120000;
+    request.headers.put('Content-Type', 'application/json');
+    request.queryParameters.put('q', 'a & b');
+    request.queryParameters.put('page', '1');
+
     Test.startTest();
-    HttpRequest actual = ApiRequestBuilder.build(value);
+    HttpRequest actual = ApiRequestBuilder.build(request);
     Test.stopTest();
+
     Assert.areEqual(
       'callout:Partner_API/v1/items?existing=true&page=1&q=a+%26+b',
       actual.getEndpoint(),
       'Query values must be encoded once and keys sorted'
     );
     Assert.areEqual('POST', actual.getMethod(), 'Methods must be canonical');
-    Assert.areEqual(value.body, actual.getBody(), 'Body must be unchanged');
+    Assert.areEqual(request.body, actual.getBody(), 'Body must be unchanged');
     Assert.areEqual(
       'application/json',
       actual.getHeader('Content-Type'),
       'Developer-selected content type must survive'
     );
   }
+
   @IsTest
   static void allowsCommonMethods() {
     Test.startTest();
@@ -41,141 +44,163 @@ private class ApiRequestBuilderTest {
         'OPTIONS'
       }
     ) {
-      ApiRequest value = HttpTestDataFactory.request('/ok');
-      value.method = method;
+      ApiRequest request = HttpTestDataFactory.request('/ok');
+      request.method = method;
       Assert.areEqual(
         method,
-        ApiRequestBuilder.build(value).getMethod(),
+        ApiRequestBuilder.build(request).getMethod(),
         'Supported method'
       );
     }
     Test.stopTest();
   }
+
   @IsTest
   static void allowsNullOptionalMaps() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.headers = null;
-    value.queryParameters = null;
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.headers = null;
+    request.queryParameters = null;
+
     Test.startTest();
-    HttpRequest actual = ApiRequestBuilder.build(value);
+    HttpRequest actual = ApiRequestBuilder.build(request);
     Test.stopTest();
+
     Assert.areEqual(
-      value.endpoint,
+      request.endpoint,
       actual.getEndpoint(),
       'No query must be added'
     );
   }
+
   @IsTest
   static void rejectsNullRequest() {
     assertInvalid(null);
   }
+
   @IsTest
   static void rejectsHttpEndpoint() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.endpoint = 'http://example.invalid';
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.endpoint = 'http://example.invalid';
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsEndpointCredentials() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.endpoint = 'https://user:password@example.invalid';
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.endpoint = 'https://user:password@example.invalid';
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsEndpointInjection() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.endpoint += '\r\nX-Test:true';
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.endpoint += '\r\nX-Test:true';
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsBlankEndpoint() {
-    ApiRequest value = new ApiRequest();
-    assertInvalid(value);
+    ApiRequest request = new ApiRequest();
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsUnsupportedMethod() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.method = 'TRACE';
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.method = 'TRACE';
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsMissingMethod() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.method = null;
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.method = null;
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsGetBody() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.body = '{}';
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.body = '{}';
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsHeadBody() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.method = 'HEAD';
-    value.body = '{}';
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.method = 'HEAD';
+    request.body = '{}';
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsZeroTimeout() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.timeoutMillis = 0;
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.timeoutMillis = 0;
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsLargeTimeout() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.timeoutMillis = 120001;
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.timeoutMillis = 120001;
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsNullTimeout() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.timeoutMillis = null;
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.timeoutMillis = null;
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsHeaderNewline() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.headers.put('X-Test', 'ok\nInjected:true');
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.headers.put('X-Test', 'ok\nInjected:true');
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsHeaderName() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.headers.put('bad name', 'ok');
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.headers.put('bad name', 'ok');
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsDuplicateHeaders() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.headers.put('X-Test', 'one');
-    value.headers.put('x-test', 'two');
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.headers.put('X-Test', 'one');
+    request.headers.put('x-test', 'two');
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsManagedHeader() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.headers.put('Content-Length', '99');
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.headers.put('Content-Length', '99');
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsNullHeaderValue() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.headers.put('X-Test', null);
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.headers.put('X-Test', null);
+    assertInvalid(request);
   }
+
   @IsTest
   static void rejectsNullQueryValue() {
-    ApiRequest value = HttpTestDataFactory.request('/ok');
-    value.queryParameters.put('q', null);
-    assertInvalid(value);
+    ApiRequest request = HttpTestDataFactory.request('/ok');
+    request.queryParameters.put('q', null);
+    assertInvalid(request);
   }
-  private static void assertInvalid(ApiRequest value) {
+
+  private static void assertInvalid(ApiRequest request) {
     Test.startTest();
     try {
-      ApiRequestBuilder.build(value);
+      ApiRequestBuilder.build(request);
       Assert.fail('Invalid request must fail');
     } catch (ApiException failure) {
       Assert.areEqual(

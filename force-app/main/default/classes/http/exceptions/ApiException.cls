@@ -2,6 +2,7 @@
 public with sharing class ApiException extends Exception {
   public Integer statusCode;
   public String code;
+
   /**
    * Builds a typed application exception. Unexpected exceptions are sanitized separately.
    * @param statusCode Supported Apex REST error status (400-599)

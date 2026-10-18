@@ -2,6 +2,7 @@
 public with sharing class ApiError {
   public String code;
   public String message;
+
   /**
    * Creates a public error descriptor.
    * @param code Application-defined stable error code

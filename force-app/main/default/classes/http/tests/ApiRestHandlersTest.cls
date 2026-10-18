@@ -4,6 +4,7 @@ private class ApiRestHandlersTest {
   private class Payload {
     public String name;
   }
+
   @IsTest
   static void writes251ItemEnvelope() {
     List<Integer> data = new List<Integer>();
@@ -11,9 +12,11 @@ private class ApiRestHandlersTest {
       data.add(i);
     }
     RestResponse target = new RestResponse();
+
     Test.startTest();
     ApiWriter.success(target, 200, data, 'request-1');
     Test.stopTest();
+
     Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(
       target.responseBody.toString()
     );
@@ -35,22 +38,28 @@ private class ApiRestHandlersTest {
       'JSON media type'
     );
   }
+
   @IsTest
   static void writesNoContentWithoutBody() {
     RestResponse target = new RestResponse();
     target.responseBody = Blob.valueOf('old');
+
     Test.startTest();
     ApiWriter.success(target, 204, null, null);
     Test.stopTest();
+
     Assert.areEqual(204, target.statusCode, 'No content');
     Assert.isNull(target.responseBody, 'Clear prior body');
   }
+
   @IsTest
   static void writesCreatedNullData() {
     RestResponse target = new RestResponse();
+
     Test.startTest();
     ApiWriter.success(target, 201, null, null);
     Test.stopTest();
+
     Assert.areEqual(201, target.statusCode, 'Created status');
     Assert.areEqual(
       true,
@@ -61,9 +70,11 @@ private class ApiRestHandlersTest {
       'Envelope success'
     );
   }
+
   @IsTest
   static void sanitizesUnexpectedException() {
     RestResponse target = new RestResponse();
+
     Test.startTest();
     ApiGlobalExceptionHandler.handle(
       target,
@@ -71,6 +82,7 @@ private class ApiRestHandlersTest {
       'trace-1'
     );
     Test.stopTest();
+
     String body = target.responseBody.toString();
     Assert.areEqual(500, target.statusCode, 'Unexpected failure');
     Assert.isFalse(body.contains('password'), 'No exception details');
@@ -78,9 +90,11 @@ private class ApiRestHandlersTest {
     Assert.isTrue(body.contains('INTERNAL_ERROR'), 'Stable internal code');
     Assert.isTrue(body.contains('trace-1'), 'Correlation preserved');
   }
+
   @IsTest
   static void writesKnownApplicationError() {
     RestResponse target = new RestResponse();
+
     Test.startTest();
     ApiGlobalExceptionHandler.handle(
       target,
@@ -88,6 +102,7 @@ private class ApiRestHandlersTest {
       'trace'
     );
     Test.stopTest();
+
     Assert.areEqual(
       409,
       target.statusCode,
@@ -98,9 +113,11 @@ private class ApiRestHandlersTest {
       'Only explicitly safe message is public'
     );
   }
+
   @IsTest
   static void fallsBackForUnsupportedErrorStatus() {
     RestResponse target = new RestResponse();
+
     Test.startTest();
     ApiGlobalExceptionHandler.handle(
       target,
@@ -108,6 +125,7 @@ private class ApiRestHandlersTest {
       null
     );
     Test.stopTest();
+
     Assert.areEqual(
       500,
       target.statusCode,
@@ -118,18 +136,22 @@ private class ApiRestHandlersTest {
       'Malformed typed errors are not public'
     );
   }
+
   @IsTest
   static void handlesNullException() {
     Test.startTest();
     ApiResponse value = ApiGlobalExceptionHandler.toResponse(null, null);
     Test.stopTest();
+
     Assert.isFalse(value.success, 'Failure envelope');
     Assert.areEqual('INTERNAL_ERROR', value.error.code, 'Safe fallback');
   }
+
   @IsTest
   static void rejectsUnsupportedWriterStatus() {
     RestResponse target = new RestResponse();
     target.statusCode = 202;
+
     Test.startTest();
     try {
       ApiWriter.success(target, 299, 'data', null);
@@ -142,8 +164,10 @@ private class ApiRestHandlersTest {
       );
     }
     Test.stopTest();
+
     Assert.areEqual(202, target.statusCode, 'Reject before changing target');
   }
+
   @IsTest
   static void rejectsMissingWriterTarget() {
     Test.startTest();
@@ -159,11 +183,13 @@ private class ApiRestHandlersTest {
     }
     Test.stopTest();
   }
+
   @IsTest
   static void rejectsContradictoryEnvelope() {
     ApiResponse payload = new ApiResponse();
     payload.success = true;
     payload.error = new ApiError('BAD', 'Bad');
+
     Test.startTest();
     try {
       ApiWriter.write(new RestResponse(), 200, payload);
@@ -177,32 +203,39 @@ private class ApiRestHandlersTest {
     }
     Test.stopTest();
   }
+
   @IsTest
   static void readsTypedJson() {
     RestRequest request = HttpTestDataFactory.inbound(
       '{"name":"Example","extra":true}',
       'application/json; charset=UTF-8'
     );
+
     Test.startTest();
     Payload value = (Payload) ApiRequestReader.readAs(request, Payload.class);
     Test.stopTest();
+
     Assert.areEqual(
       'Example',
       value.name,
       'Typed DTO with forward-compatible properties'
     );
   }
+
   @IsTest
   static void readsVendorJson() {
     RestRequest request = HttpTestDataFactory.inbound(
       '[1,2,3]',
       'application/vnd.example+json'
     );
+
     Test.startTest();
     List<Object> value = (List<Object>) ApiRequestReader.readJson(request);
     Test.stopTest();
+
     Assert.areEqual(3, value.size(), 'Vendor JSON collection');
   }
+
   @IsTest
   static void rejectsMalformedInboundJson() {
     assertReadFailure(
@@ -210,6 +243,7 @@ private class ApiRestHandlersTest {
       'INVALID_JSON'
     );
   }
+
   @IsTest
   static void rejectsWrongMediaType() {
     assertReadFailure(
@@ -217,6 +251,7 @@ private class ApiRestHandlersTest {
       'UNSUPPORTED_MEDIA_TYPE'
     );
   }
+
   @IsTest
   static void rejectsMissingMediaType() {
     assertReadFailure(
@@ -224,6 +259,7 @@ private class ApiRestHandlersTest {
       'UNSUPPORTED_MEDIA_TYPE'
     );
   }
+
   @IsTest
   static void rejectsEmptyBody() {
     assertReadFailure(
@@ -231,10 +267,12 @@ private class ApiRestHandlersTest {
       'INVALID_REQUEST'
     );
   }
+
   @IsTest
   static void rejectsNullRequest() {
     assertReadFailure(null, 'INVALID_REQUEST');
   }
+
   @IsTest
   static void rejectsInvalidTypedJson() {
     Test.startTest();
@@ -249,6 +287,7 @@ private class ApiRestHandlersTest {
     }
     Test.stopTest();
   }
+
   @IsTest
   static void rejectsMissingDtoType() {
     Test.startTest();
@@ -263,18 +302,22 @@ private class ApiRestHandlersTest {
     }
     Test.stopTest();
   }
+
   @IsTest
   static void readsCaseInsensitiveContentType() {
     RestRequest request = HttpTestDataFactory.inbound('{}', null);
     request.addHeader('CONTENT-TYPE', 'APPLICATION/JSON; charset=UTF-8');
+
     Test.startTest();
     Object result = ApiRequestReader.readJson(request);
     Test.stopTest();
+
     Assert.isNotNull(
       result,
       'HTTP header names and media types are case-insensitive'
     );
   }
+
   @IsTest
   static void rejectsBlankMediaType() {
     assertReadFailure(
@@ -282,12 +325,14 @@ private class ApiRestHandlersTest {
       'UNSUPPORTED_MEDIA_TYPE'
     );
   }
+
   @IsTest
   static void rejectsInvalidUtf8Body() {
     RestRequest request = HttpTestDataFactory.inbound('{}', 'application/json');
     request.requestBody = EncodingUtil.convertFromHex('FF');
     assertReadFailure(request, 'INVALID_JSON');
   }
+
   private static void assertReadFailure(RestRequest value, String code) {
     Test.startTest();
     try {

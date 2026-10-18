@@ -22,16 +22,15 @@ public with sharing class ApiRequestBuilder {
    * @throws ApiException for invalid configuration
    */
   public static HttpRequest build(ApiRequest request) {
-    if (request == null) {
+    if (request == null)
       throw invalid('Request is required.');
-    }
+
     validateEndpoint(request.endpoint);
     String method = String.isBlank(request.method)
       ? ''
       : request.method.trim().toUpperCase();
-    if (!METHODS.contains(method)) {
+    if (!METHODS.contains(method))
       throw invalid('Unsupported HTTP method.');
-    }
     if (
       request.timeoutMillis == null ||
       request.timeoutMillis < 1 ||
@@ -42,6 +41,7 @@ public with sharing class ApiRequestBuilder {
     if ((method == 'GET' || method == 'HEAD') && request.body != null) {
       throw invalid('GET and HEAD requests must not contain a body.');
     }
+
     HttpRequest result = new HttpRequest();
     result.setEndpoint(withQuery(request.endpoint, request.queryParameters));
     result.setMethod(method);
@@ -50,8 +50,10 @@ public with sharing class ApiRequestBuilder {
     if (request.body != null) {
       result.setBody(request.body);
     }
+
     return result;
   }
+
   private static void validateEndpoint(String endpoint) {
     if (
       String.isBlank(endpoint) ||
@@ -65,17 +67,18 @@ public with sharing class ApiRequestBuilder {
       endpoint
     );
     Boolean https = Pattern.matches('^https://[^/@?#]+(?:[/?].*)?$', endpoint);
-    if (!named && !https) {
+
+    if (!named && !https)
       throw invalid('Use HTTPS or a Named Credential endpoint.');
-    }
   }
+
   private static String withQuery(
     String endpoint,
     Map<String, String> parameters
   ) {
-    if (parameters == null || parameters.isEmpty()) {
+    if (parameters == null || parameters.isEmpty())
       return endpoint;
-    }
+
     List<String> keys = new List<String>(parameters.keySet());
     keys.sort();
     List<String> pairs = new List<String>();
@@ -89,18 +92,24 @@ public with sharing class ApiRequestBuilder {
           EncodingUtil.urlEncode(parameters.get(key), 'UTF-8')
       );
     }
-    String separator = endpoint.contains('?')
-      ? (endpoint.endsWith('?') || endpoint.endsWith('&') ? '' : '&')
-      : '?';
+
+    String separator = '?';
+    if (endpoint.contains('?')) {
+      separator = '&';
+      if (endpoint.endsWith('?') || endpoint.endsWith('&'))
+        separator = '';
+    }
+
     return endpoint + separator + String.join(pairs, '&');
   }
+
   private static void applyHeaders(
     HttpRequest target,
     Map<String, String> headers
   ) {
-    if (headers == null) {
+    if (headers == null)
       return;
-    }
+
     Set<String> seen = new Set<String>();
     for (String name : headers.keySet()) {
       String value = headers.get(name);
@@ -115,9 +124,11 @@ public with sharing class ApiRequestBuilder {
       ) {
         throw invalid('Invalid, duplicate, or platform-managed HTTP header.');
       }
+
       target.setHeader(name, value);
     }
   }
+
   private static ApiException invalid(String message) {
     return ApiException.create(400, 'INVALID_REQUEST', message);
   }

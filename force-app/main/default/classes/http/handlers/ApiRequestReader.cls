@@ -8,12 +8,14 @@ public with sharing class ApiRequestReader {
    */
   public static Object readJson(RestRequest request) {
     String body = bodyOf(request);
+
     try {
       return JSON.deserializeUntyped(body);
     } catch (System.JSONException failure) {
       throw invalidJson();
     }
   }
+
   /**
    * Parses a typed DTO, allowing additional JSON properties for API evolution.
    * @param request Explicit REST request
@@ -30,12 +32,14 @@ public with sharing class ApiRequestReader {
       );
     }
     String body = bodyOf(request);
+
     try {
       return JSON.deserialize(body, dtoType);
     } catch (System.JSONException failure) {
       throw invalidJson();
     }
   }
+
   private static String bodyOf(RestRequest request) {
     if (request == null || request.requestBody == null) {
       throw ApiException.create(
@@ -44,6 +48,7 @@ public with sharing class ApiRequestReader {
         'JSON request body is required.'
       );
     }
+
     String contentType;
     for (String name : request.headers.keySet()) {
       if (name.equalsIgnoreCase('Content-Type')) {
@@ -64,7 +69,9 @@ public with sharing class ApiRequestReader {
         'Content-Type must be application/json or application/*+json.'
       );
     }
+
     String body;
+
     try {
       body = request.requestBody.toString();
     } catch (System.StringException failure) {
@@ -77,8 +84,10 @@ public with sharing class ApiRequestReader {
         'JSON request body is required.'
       );
     }
+
     return body;
   }
+
   private static ApiException invalidJson() {
     return ApiException.create(
       400,

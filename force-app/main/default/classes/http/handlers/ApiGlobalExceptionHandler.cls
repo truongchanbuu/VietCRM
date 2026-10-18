@@ -14,14 +14,18 @@ public with sharing class ApiGlobalExceptionHandler {
       'INTERNAL_ERROR',
       'An unexpected error occurred.'
     );
-    if (failure instanceof ApiException) {
-      ApiException known = (ApiException) failure;
-      if (isPublicError(known)) {
-        payload.error = new ApiError(known.code, known.getMessage());
-      }
+
+    if (!(failure instanceof ApiException))
+      return payload;
+
+    ApiException known = (ApiException) failure;
+    if (isPublicError(known)) {
+      payload.error = new ApiError(known.code, known.getMessage());
     }
+
     return payload;
   }
+
   /**
    * Writes one safe error response at the outermost REST boundary.
    * @param target Explicit RestResponse
@@ -39,8 +43,10 @@ public with sharing class ApiGlobalExceptionHandler {
     ) {
       statusCode = ((ApiException) failure).statusCode;
     }
+
     ApiWriter.write(target, statusCode, toResponse(failure, requestId));
   }
+
   private static Boolean isPublicError(ApiException failure) {
     return failure.statusCode != null &&
       failure.statusCode >= 400 &&

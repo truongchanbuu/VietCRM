@@ -2,40 +2,51 @@
 @IsTest
 public with sharing class HttpTestDataFactory {
   public static ApiRequest request(String path) {
-    ApiRequest value = new ApiRequest();
-    value.endpoint = 'https://example.invalid' + path;
-    value.requestId = path;
-    return value;
+    ApiRequest request = new ApiRequest();
+    request.endpoint = 'https://example.invalid' + path;
+    request.requestId = path;
+
+    return request;
   }
+
   public static List<ApiRequest> requests(Integer count) {
-    List<ApiRequest> values = new List<ApiRequest>();
+    List<ApiRequest> requests = new List<ApiRequest>();
     for (Integer i = 0; i < count; i++) {
-      values.add(request('/ok/' + i));
+      requests.add(request('/ok/' + i));
     }
-    return values;
+
+    return requests;
   }
+
   public static RestRequest inbound(String body, String media) {
-    RestRequest value = new RestRequest();
-    value.requestBody = body == null ? null : Blob.valueOf(body);
+    RestRequest request = new RestRequest();
+    request.requestBody = body == null ? null : Blob.valueOf(body);
     if (media != null) {
-      value.addHeader('Content-Type', media);
+      request.addHeader('Content-Type', media);
     }
-    return value;
+
+    return request;
   }
+
   public class Mock implements HttpCalloutMock {
     public HttpResponse respond(HttpRequest request) {
       if (request.getEndpoint().endsWith('/timeout')) {
         throw new System.CalloutException('secret endpoint credential timeout');
       }
-      Integer status = request.getEndpoint().endsWith('/rate')
-        ? 429
-        : request.getEndpoint().endsWith('/unauthorized')
-            ? 401
-            : request.getEndpoint().endsWith('/server')
-                ? 503
-                : request.getEndpoint().endsWith('/redirect')
-                    ? 302
-                    : request.getEndpoint().endsWith('/empty') ? 204 : 200;
+
+      Integer status = 200;
+      if (request.getEndpoint().endsWith('/rate')) {
+        status = 429;
+      } else if (request.getEndpoint().endsWith('/unauthorized')) {
+        status = 401;
+      } else if (request.getEndpoint().endsWith('/server')) {
+        status = 503;
+      } else if (request.getEndpoint().endsWith('/redirect')) {
+        status = 302;
+      } else if (request.getEndpoint().endsWith('/empty')) {
+        status = 204;
+      }
+
       HttpResponse result = new HttpResponse();
       result.setStatusCode(status);
       result.setHeader('Content-Type', 'application/json');
@@ -43,6 +54,7 @@ public with sharing class HttpTestDataFactory {
       if (status != 204) {
         result.setBody('{"ok":true}');
       }
+
       return result;
     }
   }

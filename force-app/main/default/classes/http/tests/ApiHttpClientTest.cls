@@ -6,6 +6,7 @@ private class ApiHttpClientTest {
       return null;
     }
   }
+
   private class BulkMock implements HttpCalloutMock {
     public HttpResponse respond(HttpRequest request) {
       Assert.areEqual(
@@ -19,6 +20,7 @@ private class ApiHttpClientTest {
       return response;
     }
   }
+
   @IsTest
   static void sends251RecordsInOneBulkRequest() {
     List<Integer> records = new List<Integer>();
@@ -30,6 +32,7 @@ private class ApiHttpClientTest {
     request.body = JSON.serialize(records);
     request.headers.put('Content-Type', 'application/json');
     Test.setMock(HttpCalloutMock.class, new BulkMock());
+
     Test.startTest();
     ApiCalloutResult result = new ApiHttpClient().send(request);
     Assert.areEqual(
@@ -38,6 +41,7 @@ private class ApiHttpClientTest {
       'Use one bulk API call, not 251 callouts'
     );
     Test.stopTest();
+
     Assert.isTrue(result.isSuccess(), '202 accepted is successful');
     Assert.areEqual(
       251,
@@ -45,10 +49,12 @@ private class ApiHttpClientTest {
       'Remote acknowledgment'
     );
   }
+
   @IsTest
   static void sendsFullAvailableBudget() {
     Test.setMock(HttpCalloutMock.class, new HttpTestDataFactory.Mock());
     List<ApiRequest> requests = HttpTestDataFactory.requests(100);
+
     Test.startTest();
     Integer queries = Limits.getQueries();
     Integer dml = Limits.getDmlStatements();
@@ -61,6 +67,7 @@ private class ApiHttpClientTest {
     Assert.areEqual(queries, Limits.getQueries(), 'HTTP toolkit uses no SOQL');
     Assert.areEqual(dml, Limits.getDmlStatements(), 'HTTP toolkit uses no DML');
     Test.stopTest();
+
     Assert.areEqual(100, results.size(), 'One outcome per request');
     for (Integer i = 0; i < results.size(); i++) {
       Assert.isTrue(results[i].isSuccess(), 'Mock result must succeed');
@@ -71,6 +78,7 @@ private class ApiHttpClientTest {
       );
     }
   }
+
   @IsTest
   static void preservesMixedOutcomesWithoutRetry() {
     Test.setMock(HttpCalloutMock.class, new HttpTestDataFactory.Mock());
@@ -89,6 +97,7 @@ private class ApiHttpClientTest {
     ) {
       requests.add(HttpTestDataFactory.request(path));
     }
+
     Test.startTest();
     List<ApiCalloutResult> results = new ApiHttpClient().sendAll(requests);
     Assert.areEqual(
@@ -97,6 +106,7 @@ private class ApiHttpClientTest {
       'No automatic retries'
     );
     Test.stopTest();
+
     Assert.isTrue(results[0].isSuccess(), 'First response succeeds');
     Assert.areEqual(429, results[1].statusCode, 'Preserve upstream rate limit');
     Assert.areEqual(
@@ -131,9 +141,11 @@ private class ApiHttpClientTest {
       'Lazy JSON parsing'
     );
   }
+
   @IsTest
   static void rejects251RequestsBeforeSending() {
     Test.setMock(HttpCalloutMock.class, new HttpTestDataFactory.Mock());
+
     Test.startTest();
     try {
       new ApiHttpClient().sendAll(HttpTestDataFactory.requests(251));
@@ -148,9 +160,11 @@ private class ApiHttpClientTest {
     Assert.areEqual(0, Limits.getCallouts(), 'Reject before any side effects');
     Test.stopTest();
   }
+
   @IsTest
   static void considersAlreadyConsumedCallouts() {
     Test.setMock(HttpCalloutMock.class, new HttpTestDataFactory.Mock());
+
     Test.startTest();
     new ApiHttpClient().send(HttpTestDataFactory.request('/ok'));
     try {
@@ -166,11 +180,13 @@ private class ApiHttpClientTest {
     Assert.areEqual(1, Limits.getCallouts(), 'No second batch started');
     Test.stopTest();
   }
+
   @IsTest
   static void validatesWholeBatchBeforeSending() {
     Test.setMock(HttpCalloutMock.class, new HttpTestDataFactory.Mock());
     List<ApiRequest> requests = HttpTestDataFactory.requests(2);
     requests[1].method = 'BAD';
+
     Test.startTest();
     try {
       new ApiHttpClient().sendAll(requests);
@@ -181,6 +197,7 @@ private class ApiHttpClientTest {
     Assert.areEqual(0, Limits.getCallouts(), 'First request must not be sent');
     Test.stopTest();
   }
+
   @IsTest
   static void emptyBatchDoesNothing() {
     Test.startTest();
@@ -188,8 +205,10 @@ private class ApiHttpClientTest {
       .sendAll(new List<ApiRequest>());
     Assert.areEqual(0, Limits.getCallouts(), 'Empty input has no side effects');
     Test.stopTest();
+
     Assert.areEqual(0, result.size(), 'Empty output');
   }
+
   @IsTest
   static void rejectsNullBatch() {
     Test.startTest();
@@ -201,6 +220,7 @@ private class ApiHttpClientTest {
     }
     Test.stopTest();
   }
+
   @IsTest
   static void rejectsNullTransport() {
     Test.startTest();
@@ -216,22 +236,26 @@ private class ApiHttpClientTest {
     }
     Test.stopTest();
   }
+
   @IsTest
   static void handlesMissingTransportResponse() {
     Test.startTest();
     ApiCalloutResult result = new ApiHttpClient(new NullTransport())
       .send(HttpTestDataFactory.request('/ok'));
     Test.stopTest();
+
     Assert.areEqual(
       'CALLOUT_FAILED',
       result.error.code,
       'Null native response must not pass'
     );
   }
+
   @IsTest
   static void rejectsMalformedUpstreamJson() {
     ApiCalloutResult value = new ApiCalloutResult();
     value.body = '<html>error</html>';
+
     Test.startTest();
     try {
       value.readJson();
