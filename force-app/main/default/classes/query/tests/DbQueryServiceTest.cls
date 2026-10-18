@@ -85,10 +85,10 @@ private class DbQueryServiceTest {
     QueryTestSupport.assertInvalidRequest(request, 'offset above 2000');
 
     request = QueryTestSupport.newRequest(DbPageRequest.KEYSET);
-    request.orderBy = 'Name';
+    request.orderBy = 'Industry';
     QueryTestSupport.assertInvalidRequest(
       request,
-      'KEYSET orderBy other than Id'
+      'KEYSET configured picklist ordering'
     );
 
     request = QueryTestSupport.newRequest(DbPageRequest.KEYSET);

@@ -9,6 +9,9 @@ public with sharing class DbQueryResult {
   public Integer nextOffset { get; set; }
   @AuraEnabled
   public Id nextAfterId { get; set; }
+  /** Last sort value for KEYSET continuation; use together with nextAfterId. */
+  @AuraEnabled
+  public Object nextAfterValue { get; set; }
   @AuraEnabled
   public Integer nextPosition { get; set; }
   @AuraEnabled

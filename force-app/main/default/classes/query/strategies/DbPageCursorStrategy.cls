@@ -8,9 +8,12 @@ public with sharing class DbPageCursorStrategy implements IDbPageStrategy {
     if (page.offsetSize != null && page.offsetSize != 0) {
       throw new DbQueryException('PAGE_CURSOR does not accept offsetSize');
     }
-    if (page.afterId != null) {
-      throw new DbQueryException('PAGE_CURSOR does not accept afterId');
+    if (page.afterId != null || page.afterValue != null) {
+      throw new DbQueryException(
+        'PAGE_CURSOR does not accept keyset continuation'
+      );
     }
+
     validatePageSize(pageSize);
 
     String soql = plan.toSoql();
@@ -46,6 +49,7 @@ public with sharing class DbPageCursorStrategy implements IDbPageStrategy {
     if (position == null || position < 0) {
       throw new DbQueryException('Cursor position must be non-negative');
     }
+
     validatePageSize(pageSize);
 
     try {
@@ -72,6 +76,7 @@ public with sharing class DbPageCursorStrategy implements IDbPageStrategy {
         fetchSize
       );
       result.records = fetched.getRecords();
+
       Integer nextIndex = fetched.getNextIndex();
       result.hasNext =
         nextIndex != null &&
