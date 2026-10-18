@@ -1,9 +1,9 @@
 @IsTest
-private class ApiBodyCodecTest {
-  private class StubCodecException extends Exception {
+private class ApiBodyFormatterTest {
+  private class StubFormatterException extends Exception {
   }
 
-  private class StubCodec implements IApiBodyCodec {
+  private class StubFormatter implements IApiBodyFormatter {
     String contentType = 'application/x-toolkit-test';
     Boolean fail = false;
     Boolean nullOutput = false;
@@ -21,14 +21,14 @@ private class ApiBodyCodecTest {
     public String encode(Object value) {
       encodes++;
       if (fail)
-        throw new StubCodecException('sensitive encoder detail');
+        throw new StubFormatterException('sensitive encoder detail');
       return nullOutput ? null : 'encoded-body';
     }
 
     public Object decode(String value, System.Type targetType) {
       receivedType = targetType;
       if (fail)
-        throw new StubCodecException('sensitive decoder detail');
+        throw new StubFormatterException('sensitive decoder detail');
       return value;
     }
   }
@@ -49,11 +49,11 @@ private class ApiBodyCodecTest {
     }
   }
 
-  private static ApiRequest outbound(IApiBodyCodec codec) {
+  private static ApiRequest outbound(IApiBodyFormatter formatter) {
     ApiRequest request = new ApiRequest();
     request.endpoint = 'callout:Example/resource';
     request.method = 'POST';
-    request.codec = codec;
+    request.formatter = formatter;
     request.payload = new Map<String, Object>{ 'name' => 'sample' };
     return request;
   }
@@ -66,46 +66,46 @@ private class ApiBodyCodecTest {
   }
 
   @IsTest
-  static void jsonCodecSupportsTypedUntypedAndVendorMedia() {
-    ApiJsonCodec codec = new ApiJsonCodec();
+  static void jsonFormatterSupportsTypedUntypedAndVendorMedia() {
+    ApiJsonFormatter formatter = new ApiJsonFormatter();
     Assert.isTrue(
-      codec.supports('Application/Vnd.example+JSON; charset=UTF-8')
+      formatter.supports('Application/Vnd.example+JSON; charset=UTF-8')
     );
-    Assert.isTrue(codec.supports('application/json'));
-    Assert.isFalse(codec.supports(null));
-    Assert.isFalse(codec.supports('text/json'));
-    Assert.areEqual('null', codec.encode(null));
+    Assert.isTrue(formatter.supports('application/json'));
+    Assert.isFalse(formatter.supports(null));
+    Assert.isFalse(formatter.supports('text/json'));
+    Assert.areEqual('null', formatter.encode(null));
     List<String> values = new List<String>();
     for (Integer index = 0; index < 251; index++)
       values.add('value-' + index);
     Integer queries = Limits.getQueries();
     Integer dml = Limits.getDmlStatements();
-    String body = codec.encode(values);
-    Assert.areEqual(251, ((List<Object>) codec.decode(body, null)).size());
+    String body = formatter.encode(values);
+    Assert.areEqual(251, ((List<Object>) formatter.decode(body, null)).size());
     Assert.areEqual(
       values,
-      (List<String>) codec.decode(body, List<String>.class)
+      (List<String>) formatter.decode(body, List<String>.class)
     );
     Assert.areEqual(queries, Limits.getQueries());
     Assert.areEqual(dml, Limits.getDmlStatements());
   }
 
   @IsTest
-  static void customCodecFlowsThroughUnchangedTransport() {
-    StubCodec codec = new StubCodec();
+  static void customFormatterFlowsThroughUnchangedTransport() {
+    StubFormatter formatter = new StubFormatter();
     RecordingTransport transport = new RecordingTransport();
     ApiCalloutResult result = new ApiHttpClient(transport)
-      .send(outbound(codec));
+      .send(outbound(formatter));
     Assert.isTrue(result.isSuccess());
     Assert.areEqual(1, transport.calls);
-    Assert.areEqual('custom-result', result.read(codec));
-    Assert.areEqual('custom-result', result.readAs(String.class, codec));
-    Assert.areEqual(String.class, codec.receivedType);
+    Assert.areEqual('custom-result', result.read(formatter));
+    Assert.areEqual('custom-result', result.readAs(String.class, formatter));
+    Assert.areEqual(String.class, formatter.receivedType);
   }
 
   @IsTest
   static void explicitCompatibleMediaAndRawBodiesRemainSupported() {
-    ApiRequest request = outbound(new StubCodec());
+    ApiRequest request = outbound(new StubFormatter());
     request.headers.put(
       'content-type',
       'application/x-toolkit-test; version=2'
@@ -114,33 +114,33 @@ private class ApiBodyCodecTest {
       'application/x-toolkit-test; version=2',
       ApiRequestBuilder.build(request).getHeader('Content-Type')
     );
-    request.codec = null;
+    request.formatter = null;
     request.payload = null;
     request.body = 'raw-text';
     Assert.areEqual('raw-text', ApiRequestBuilder.build(request).getBody());
   }
 
   @IsTest
-  static void badCodecRequestsRejectBeforeAnyCallouts() {
-    StubCodec codec = new StubCodec();
+  static void badFormatterRequestsRejectBeforeAnyCallouts() {
+    StubFormatter formatter = new StubFormatter();
     RecordingTransport transport = new RecordingTransport();
-    ApiRequest invalid = outbound(codec);
+    ApiRequest invalid = outbound(formatter);
     invalid.body = 'conflict';
     expectInvalidBatch(transport, invalid);
     invalid.body = null;
-    invalid.codec = null;
+    invalid.formatter = null;
     expectInvalidBatch(transport, invalid);
-    invalid.codec = codec;
+    invalid.formatter = formatter;
     invalid.method = 'GET';
     expectInvalidBatch(transport, invalid);
     invalid.method = 'POST';
     invalid.headers.put('Content-Type', 'text/plain');
     expectInvalidBatch(transport, invalid);
     invalid.headers.clear();
-    codec.nullOutput = true;
+    formatter.nullOutput = true;
     expectInvalidBatch(transport, invalid);
-    codec.nullOutput = false;
-    codec.fail = true;
+    formatter.nullOutput = false;
+    formatter.fail = true;
     expectInvalidBatch(transport, invalid);
     Assert.areEqual(0, transport.calls);
   }
@@ -151,7 +151,9 @@ private class ApiBodyCodecTest {
   ) {
     try {
       new ApiHttpClient(transport)
-        .sendAll(new List<ApiRequest>{ outbound(new StubCodec()), invalid });
+        .sendAll(
+          new List<ApiRequest>{ outbound(new StubFormatter()), invalid }
+        );
       Assert.fail('Expected preflight rejection');
     } catch (ApiException failure) {
       Assert.areEqual('INVALID_REQUEST', failure.code);
@@ -161,16 +163,19 @@ private class ApiBodyCodecTest {
 
   @IsTest
   static void restReaderPassesTypeAndMapsDecodeErrors() {
-    StubCodec codec = new StubCodec();
-    Assert.areEqual('custom-input', ApiRequestReader.read(inbound(), codec));
+    StubFormatter formatter = new StubFormatter();
     Assert.areEqual(
       'custom-input',
-      ApiRequestReader.readAs(inbound(), String.class, codec)
+      ApiRequestReader.read(inbound(), formatter)
     );
-    Assert.areEqual(String.class, codec.receivedType);
-    codec.fail = true;
+    Assert.areEqual(
+      'custom-input',
+      ApiRequestReader.readAs(inbound(), String.class, formatter)
+    );
+    Assert.areEqual(String.class, formatter.receivedType);
+    formatter.fail = true;
     try {
-      ApiRequestReader.read(inbound(), codec);
+      ApiRequestReader.read(inbound(), formatter);
       Assert.fail('Expected decoding error');
     } catch (ApiException failure) {
       Assert.areEqual(400, failure.statusCode);
@@ -180,32 +185,32 @@ private class ApiBodyCodecTest {
   }
 
   @IsTest
-  static void restReaderRejectsWrongMediaAndMissingCodec() {
+  static void restReaderRejectsWrongMediaAndMissingFormatter() {
     RestRequest request = inbound();
     request.headers.put('Content-Type', 'text/plain');
     try {
-      ApiRequestReader.read(request, new StubCodec());
+      ApiRequestReader.read(request, new StubFormatter());
       Assert.fail('Expected media rejection');
     } catch (ApiException failure) {
       Assert.areEqual(415, failure.statusCode);
     }
     try {
       ApiRequestReader.read(request, null);
-      Assert.fail('Expected missing codec');
+      Assert.fail('Expected missing formatter');
     } catch (ApiException failure) {
-      Assert.areEqual('INVALID_CODEC', failure.code);
+      Assert.areEqual('INVALID_FORMATTER', failure.code);
     }
   }
 
   @IsTest
   static void calloutDecoderHandlesEmptyAndInvalidBodies() {
-    StubCodec codec = new StubCodec();
+    StubFormatter formatter = new StubFormatter();
     ApiCalloutResult result = new ApiCalloutResult();
-    codec.fail = true;
-    Assert.isNull(result.read(codec));
+    formatter.fail = true;
+    Assert.isNull(result.read(formatter));
     result.body = 'invalid';
     try {
-      result.read(codec);
+      result.read(formatter);
       Assert.fail('Expected invalid upstream body');
     } catch (ApiException failure) {
       Assert.areEqual(500, failure.statusCode);
@@ -214,28 +219,28 @@ private class ApiBodyCodecTest {
     }
     try {
       result.read(null);
-      Assert.fail('Expected missing codec');
+      Assert.fail('Expected missing formatter');
     } catch (ApiException failure) {
-      Assert.areEqual('INVALID_CODEC', failure.code);
+      Assert.areEqual('INVALID_FORMATTER', failure.code);
     }
     try {
-      result.readAs(null, codec);
+      result.readAs(null, formatter);
       Assert.fail('Expected missing type');
     } catch (ApiException failure) {
-      Assert.areEqual('INVALID_CODEC', failure.code);
+      Assert.areEqual('INVALID_FORMATTER', failure.code);
     }
   }
 
   @IsTest
-  static void writerUsesCustomCodecAndSkipsBodylessEncoding() {
-    StubCodec codec = new StubCodec();
+  static void writerUsesCustomFormatterAndSkipsBodylessEncoding() {
+    StubFormatter formatter = new StubFormatter();
     RestResponse response = new RestResponse();
     response.addHeader('X-Correlation', 'preserved');
     ApiWriter.write(
       response,
       201,
       ApiResponseFactory.success('data', 'id'),
-      codec
+      formatter
     );
     Assert.areEqual(201, response.statusCode);
     Assert.areEqual('encoded-body', response.responseBody.toString());
@@ -245,40 +250,40 @@ private class ApiBodyCodecTest {
     );
     Assert.areEqual('no-store', response.headers.get('Cache-Control'));
     Assert.areEqual('preserved', response.headers.get('X-Correlation'));
-    codec.fail = true;
+    formatter.fail = true;
     ApiWriter.write(
       response,
       204,
       ApiResponseFactory.success(null, null),
-      codec
+      formatter
     );
     Assert.isNull(response.responseBody);
     ApiWriter.write(
       response,
       304,
       ApiResponseFactory.failed('UNCHANGED', 'Unchanged', null),
-      codec
+      formatter
     );
     Assert.isNull(response.responseBody);
-    Assert.areEqual(1, codec.encodes);
+    Assert.areEqual(1, formatter.encodes);
   }
 
   @IsTest
   static void writerFailuresDoNotMutateResponse() {
-    StubCodec codec = new StubCodec();
-    codec.fail = true;
-    expectWriterFailure(codec);
-    codec.fail = false;
-    codec.nullOutput = true;
-    expectWriterFailure(codec);
-    codec.contentType = 'unsafe\r\nInjected: true';
-    expectWriterFailure(codec);
-    codec.contentType = '';
-    expectWriterFailure(codec);
+    StubFormatter formatter = new StubFormatter();
+    formatter.fail = true;
+    expectWriterFailure(formatter);
+    formatter.fail = false;
+    formatter.nullOutput = true;
+    expectWriterFailure(formatter);
+    formatter.contentType = 'unsafe\r\nInjected: true';
+    expectWriterFailure(formatter);
+    formatter.contentType = '';
+    expectWriterFailure(formatter);
     expectWriterFailure(null);
   }
 
-  private static void expectWriterFailure(IApiBodyCodec codec) {
+  private static void expectWriterFailure(IApiBodyFormatter formatter) {
     RestResponse response = new RestResponse();
     response.statusCode = 202;
     response.responseBody = Blob.valueOf('original');
@@ -288,7 +293,7 @@ private class ApiBodyCodecTest {
         response,
         200,
         ApiResponseFactory.success('data', null),
-        codec
+        formatter
       );
       Assert.fail('Expected invalid response');
     } catch (ApiException failure) {

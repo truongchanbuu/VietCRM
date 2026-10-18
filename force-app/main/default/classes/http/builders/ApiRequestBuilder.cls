@@ -9,12 +9,14 @@ public with sharing class ApiRequestBuilder {
     'HEAD',
     'OPTIONS'
   };
+
   private static final Set<String> MANAGED_HEADERS = new Set<String>{
     'host',
     'content-length',
     'transfer-encoding',
     'connection'
   };
+
   /**
    * Builds a native request without network access or database work.
    * @param request Developer-owned endpoint, body, headers and query parameters
@@ -41,7 +43,7 @@ public with sharing class ApiRequestBuilder {
     if (
       (method == 'GET' || method == 'HEAD') &&
       (request.body != null ||
-      request.codec != null)
+      request.formatter != null)
     ) {
       throw invalid('GET and HEAD requests must not contain a body.');
     }
@@ -132,16 +134,16 @@ public with sharing class ApiRequestBuilder {
   }
 
   private static void applyBody(HttpRequest target, ApiRequest request) {
-    if (request.codec == null) {
+    if (request.formatter == null) {
       if (request.payload != null) {
-        throw invalid('A codec is required when payload is supplied.');
+        throw invalid('A formatter is required when payload is supplied.');
       }
       if (request.body != null)
         target.setBody(request.body);
       return;
     }
     if (request.body != null) {
-      throw invalid('Choose raw body or codec payload, not both.');
+      throw invalid('Choose raw body or formatter payload, not both.');
     }
 
     String contentType;
@@ -154,24 +156,24 @@ public with sharing class ApiRequestBuilder {
       }
     }
     if (contentType == null)
-      contentType = request.codec.getContentType();
+      contentType = request.formatter.getContentType();
     if (
       String.isBlank(contentType) ||
       contentType.contains('\r') ||
       contentType.contains('\n') ||
-      !request.codec.supports(contentType)
+      !request.formatter.supports(contentType)
     ) {
-      throw invalid('Content-Type is not supported by the selected codec.');
+      throw invalid('Content-Type is not supported by the selected formatter.');
     }
 
     String body;
     try {
-      body = request.codec.encode(request.payload);
+      body = request.formatter.encode(request.payload);
     } catch (Exception failure) {
       throw invalid('Request payload could not be encoded.');
     }
     if (body == null)
-      throw invalid('Codec must return a text body.');
+      throw invalid('Formatter must return a text body.');
 
     target.setHeader('Content-Type', contentType);
     target.setBody(body);

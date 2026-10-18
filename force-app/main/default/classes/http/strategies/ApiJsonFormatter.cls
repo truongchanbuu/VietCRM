@@ -1,5 +1,5 @@
 /** Default JSON representation, shared by optional outbound and REST adapters. */
-public with sharing class ApiJsonCodec implements IApiBodyCodec {
+public with sharing class ApiJsonFormatter implements IApiBodyFormatter {
   /** @return The default JSON UTF-8 Content-Type. */
   public String getContentType() {
     return 'application/json; charset=UTF-8';

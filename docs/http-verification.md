@@ -4,7 +4,7 @@ Validated on 2026-10-18, branch `feature/http`, against development org alias `d
 
 - `npm test`: passed, two independent modules and 49 Apex classes/interfaces; formatting passed.
 - `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 157 moderate, 239 low. HTTP-only: 0 critical/high, 97 moderate, 116 low. No severity overrides or suppressions were added.
-- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k1JULCA2`. All 49 local classes/interfaces compiled; 149 tests passed (101 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
+- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k1Ki9CAE`. All 49 local classes/interfaces compiled; 149 tests passed (101 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
 - HTTP aggregate executable-line coverage: 487/488 (99.80%). Statement coverage is not branch coverage and does not prove every integration environment.
 
 | HTTP class | Covered lines | Coverage |
@@ -15,7 +15,7 @@ Validated on 2026-10-18, branch `feature/http`, against development org alias `d
 | ApiGlobalExceptionHandler | 21/21 | 100.00% |
 | ApiHttpClient | 50/50 | 100.00% |
 | ApiHttpTransport | 2/2 | 100.00% |
-| ApiJsonCodec | 14/14 | 100.00% |
+| ApiJsonFormatter | 14/14 | 100.00% |
 | ApiRequest | 4/4 | 100.00% |
 | ApiRequestBuilder | 119/120 | 99.17% |
 | ApiRequestReader | 69/69 | 100.00% |
@@ -25,8 +25,8 @@ Validated on 2026-10-18, branch `feature/http`, against development org alias `d
 
 ## Exercised behavior
 
-- Custom test-only codec through outbound requests/results and REST readers/writers, typed decoding, encoding/decoding failure sanitization, unsupported media, missing codecs, and no target mutation on encoding failure.
-- JSON codec typed/untyped round trips with 251 values and no SOQL/DML; all legacy JSON tests retained.
+- Custom test-only formatter through outbound requests/results and REST readers/writers, typed decoding, encoding/decoding failure sanitization, unsupported media, missing formatters, and no target mutation on encoding failure.
+- JSON formatter typed/untyped round trips with 251 values and no SOQL/DML; all legacy JSON tests retained.
 
 - 251 business records sent in one mocked bulk HTTP request; 251 items serialized in an inbound REST response.
 - 100 mocked callouts in one transaction, ordered outcomes, and no toolkit SOQL/DML consumption.

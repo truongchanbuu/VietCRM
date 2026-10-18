@@ -38,7 +38,7 @@ public with sharing class ApiWriter {
     Integer statusCode,
     ApiResponse payload
   ) {
-    write(target, statusCode, payload, new ApiJsonCodec());
+    write(target, statusCode, payload, new ApiJsonFormatter());
   }
 
   /**
@@ -46,21 +46,21 @@ public with sharing class ApiWriter {
    * @param target Explicit RestResponse
    * @param statusCode Supported Apex REST status
    * @param payload Safe response envelope
-   * @param codec Explicit text representation; no global format registry is used
+   * @param formatter Explicit text representation; no global format registry is used
    * @throws ApiException for invalid configuration or encoding failure
    */
   public static void write(
     RestResponse target,
     Integer statusCode,
     ApiResponse payload,
-    IApiBodyCodec codec
+    IApiBodyFormatter formatter
   ) {
     if (
       target == null ||
       !supports(statusCode) ||
       payload == null ||
       payload.success == null ||
-      codec == null
+      formatter == null
     ) {
       throw ApiException.create(
         500,
@@ -81,7 +81,7 @@ public with sharing class ApiWriter {
       );
     }
 
-    String contentType = codec.getContentType();
+    String contentType = formatter.getContentType();
     if (
       String.isBlank(contentType) ||
       contentType.contains('\r') ||
@@ -90,19 +90,19 @@ public with sharing class ApiWriter {
       throw ApiException.create(
         500,
         'INVALID_RESPONSE',
-        'Codec must provide a valid Content-Type.'
+        'Formatter must provide a valid Content-Type.'
       );
     }
 
     Blob body;
     if (statusCode != 204 && statusCode != 304) {
       try {
-        String encoded = codec.encode(payload);
+        String encoded = formatter.encode(payload);
         if (encoded == null) {
           throw ApiException.create(
             500,
             'INVALID_RESPONSE',
-            'Codec must return a text body.'
+            'Formatter must return a text body.'
           );
         }
         body = Blob.valueOf(encoded);

@@ -2,14 +2,14 @@
  * UTF-8 text representation boundary. Implementations must be pure: no callouts,
  * SOQL, DML or mutation of the input payload. HTTP error policy belongs to callers.
  */
-public interface IApiBodyCodec {
+public interface IApiBodyFormatter {
   /** @return The output Content-Type, including UTF-8 charset when appropriate. */
   String getContentType();
 
   /**
    * Recognizes inbound content types, including optional parameters.
    * @param contentType HTTP Content-Type, possibly blank or mixed case
-   * @return True when this codec can decode the supplied representation
+   * @return True when this formatter can decode the supplied representation
    */
   Boolean supports(String contentType);
 

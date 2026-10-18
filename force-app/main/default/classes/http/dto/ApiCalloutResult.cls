@@ -21,7 +21,7 @@ public with sharing class ApiCalloutResult {
    */
   public Object readJson() {
     return decode(
-      new ApiJsonCodec(),
+      new ApiJsonFormatter(),
       null,
       'INVALID_UPSTREAM_JSON',
       'Upstream response is not valid JSON.'
@@ -29,13 +29,13 @@ public with sharing class ApiCalloutResult {
   }
 
   /**
-   * Decodes an upstream body with an explicitly supplied text codec.
-   * @param codec Application-owned representation
+   * Decodes an upstream body with an explicitly supplied text formatter.
+   * @param formatter Application-owned representation
    * @return Untyped data, or null for an empty response body
    */
-  public Object read(IApiBodyCodec codec) {
+  public Object read(IApiBodyFormatter formatter) {
     return decode(
-      codec,
+      formatter,
       null,
       'INVALID_UPSTREAM_BODY',
       'Upstream response could not be decoded.'
@@ -45,19 +45,19 @@ public with sharing class ApiCalloutResult {
   /**
    * Passes type information through to the selected decoder.
    * @param targetType Application DTO type
-   * @param codec Application-owned representation
+   * @param formatter Application-owned representation
    * @return Typed data, or null for an empty response body
    */
-  public Object readAs(System.Type targetType, IApiBodyCodec codec) {
+  public Object readAs(System.Type targetType, IApiBodyFormatter formatter) {
     if (targetType == null) {
       throw ApiException.create(
         500,
-        'INVALID_CODEC',
+        'INVALID_FORMATTER',
         'A response type is required.'
       );
     }
     return decode(
-      codec,
+      formatter,
       targetType,
       'INVALID_UPSTREAM_BODY',
       'Upstream response could not be decoded.'
@@ -65,23 +65,23 @@ public with sharing class ApiCalloutResult {
   }
 
   private Object decode(
-    IApiBodyCodec codec,
+    IApiBodyFormatter formatter,
     System.Type targetType,
     String errorCode,
     String message
   ) {
-    if (codec == null) {
+    if (formatter == null) {
       throw ApiException.create(
         500,
-        'INVALID_CODEC',
-        'Body codec is required.'
+        'INVALID_FORMATTER',
+        'Body formatter is required.'
       );
     }
     if (String.isBlank(body))
       return null;
 
     try {
-      return codec.decode(body, targetType);
+      return formatter.decode(body, targetType);
     } catch (Exception failure) {
       throw ApiException.create(500, errorCode, message);
     }

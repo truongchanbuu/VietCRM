@@ -44,7 +44,7 @@ RunLocalTests also includes existing unmanaged tests in the target org. Use a cl
 | Module | Entry points                                                                          | Extension points                                         |
 | ------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | Query  | `DbQueryService.execute`, `queryLocator`, `fetchPage`                                 | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory` |
-| HTTP   | `ApiHttpClient.sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | `IApiTransport` and explicit `IApiBodyCodec`                     |
+| HTTP   | `ApiHttpClient.sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | `IApiTransport` and explicit `IApiBodyFormatter`                     |
 
 See [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
 
