@@ -10,5 +10,9 @@
   "logging": {
     "dependencies": [],
     "objects": ["LogEvent__e", "Log__c"]
+  },
+  "trigger": {
+    "dependencies": [],
+    "objects": []
   }
 }

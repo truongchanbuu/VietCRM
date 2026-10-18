@@ -55,7 +55,7 @@ for (const [name, current] of classes) {
   for (const [other, dependency] of classes) {
     if (
       current.module !== dependency.module &&
-      new RegExp(`\\b${other}\\b`).test(current.source) &&
+      new RegExp(`(?<![\\w.])${other}\\b`).test(current.source) &&
       !modules[current.module]?.dependencies.includes(dependency.module)
     )
       errors.push(`Undeclared dependency: ${name} -> ${other}`);

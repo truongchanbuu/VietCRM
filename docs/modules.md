@@ -30,6 +30,10 @@ Logging is an independent module with no application-module dependencies. Its Ap
 
 The producer explicitly checks event create permission and publishes buffered entries on flush. The event subscriber owns a documented system-mode insert boundary. Publishers do not need stored-log access; readers receive a separate application-owned grant. Query and HTTP do not depend on logging.
 
+## Trigger
+
+Trigger is independent of query, HTTP, logging, and business metadata. It owns no objects or installed triggers. `AbstractTriggerHandler.run()` captures the active native context and dispatches one of seven protected callbacks. `TriggerContext` retains native list, map, and record references and rejects unavailable collections. Field comparisons support update events only. There is no database work, exception wrapping, retry policy, bypass registry, or recursion suppression. See [trigger contracts](trigger-toolkit.md) and the opt-in [Account example](../examples/trigger/README.md).
+
 ## Validation policy
 
 Each feature needs behavior assertions, error cases, bulk tests where it processes collections, and tests for its real security boundary. Retain at least Salesforce's per-class 75% coverage requirement, targeting 90%+ on new logic. Coverage alone is not correctness: deep paging must verify exact population, no duplicate IDs, and termination.
