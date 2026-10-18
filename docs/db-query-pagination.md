@@ -9,7 +9,7 @@
 | Entry point                   | Use                                       | Continuation                                       | Limits / behavior                                                                                                                                       |
 | ----------------------------- | ----------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `execute`, `OFFSET` (default) | Small lists, direct page selection        | `nextOffset`                                       | Offset 0–2000. `hasNext` reports additional records; `nextOffset` is null if the next offset exceeds 2000. Switch strategy by starting a new query.     |
-| `execute`, `KEYSET`           | Sequential traversal beyond OFFSET limits | `nextAfterId`                                      | Currently supports `Id ASC/DESC` only. Other sort fields are rejected. No snapshot isolation; inserts/deletes can affect later pages.                   |
+| `execute`, `KEYSET`           | Sequential traversal beyond OFFSET limits | `nextAfterId` + `nextAfterValue`                   | Supports one sortable/filterable field plus `Id`, ASC/DESC. Picklist order is rejected. No snapshot isolation; inserts/deletes can affect later pages.  |
 | `execute`, `PAGE_CURSOR`      | Native Salesforce pagination cursor       | `cursor` and `nextPosition`, passed to `fetchPage` | Opens the whole matching result set, without a page-sized SOQL LIMIT. Maximum 2,000 records per page and 100,000 per cursor; native expiration applies. |
 | `queryLocator`                | `Database.Batchable.start()`              | Salesforce manages batch chunks                    | Returns `Database.QueryLocator`; not a UI token. Rejects `page` and `pageSize`; use batch scope to control chunk size.                                  |
 
@@ -28,6 +28,28 @@ if (first.hasNext) {
     DbQueryResult second = DbQueryService.execute(request, 100);
 }
 ```
+
+### Keyset by another field
+
+Set `orderBy` to a field API name or parent field path, for example `Name`, `AnnualRevenue`, `CreatedDate`, or `Account.Name`. The compiler includes the sort field and `Id` in the projection when KEYSET is selected. Results use `(orderBy, Id)` in the requested direction. Common text, numeric/currency, date/datetime, reference, and checkbox fields are supported. Checkbox continuation uses equality groups rather than `<`/`>`.
+
+```apex
+request.orderBy = 'Name';
+request.page = new DbPageRequest();
+request.page.strategy = DbPageRequest.KEYSET;
+DbQueryResult firstByName = DbQueryService.execute(request, 100);
+if (firstByName.hasNext) {
+    request.page.afterId = firstByName.nextAfterId;
+    request.page.afterValue = firstByName.nextAfterValue;
+    DbQueryResult secondByName = DbQueryService.execute(request, 100);
+}
+```
+
+Pass **both** continuation properties unchanged, including a null `nextAfterValue`. `afterId` determines whether this is a continuation; null `afterValue` is a real null field boundary, not an instruction to look up the anchor. Id-only ordering still uses `afterId` alone. Returning boundary values avoids an extra query and continues when the anchor record is deleted. Date/datetime and numeric values from JSON are coerced back to their field types.
+
+The strategy follows Salesforce's native null ordering, preserving `Id` order within the null group. Scalar and parent scalar fields put nulls first; direct reference fields put nulls last when descending. It rejects unsortable fields in the compiler, then non-filterable fields and picklists before executing a keyset query. Salesforce has no generic describe flag for comparison semantics. Picklist order depends on configured rank and cannot be represented by a normal scalar seek predicate; use OFFSET/PAGE_CURSOR or an application-maintained sortable scalar rank instead.
+
+Validation deliberately does not enforce indexes, uniqueness, immutability, field naming, or application-specific field policies. The calling developer owns query selectivity, supported locale/collation behavior, currency normalization in multi-currency orgs, and keeping the request and boundary together. Other platform-specific query limitations surface as `DbQueryException` with the original error. This is one chosen sort field plus an Id tie-breaker, not arbitrary multi-column ordering or a signed cursor token.
 
 Keep the same filters, ordering, and object across keyset pages. `afterId` is a boundary value, not an authorization token. Each page is queried in user mode.
 

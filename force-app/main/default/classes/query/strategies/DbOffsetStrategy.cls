@@ -9,8 +9,8 @@ public with sharing class DbOffsetStrategy implements IDbPageStrategy {
     if (offsetSize < 0 || offsetSize > MAX_OFFSET) {
       throw new DbQueryException('Offset must be between 0 and ' + MAX_OFFSET);
     }
-    if (page.afterId != null) {
-      throw new DbQueryException('OFFSET does not accept afterId');
+    if (page.afterId != null || page.afterValue != null) {
+      throw new DbQueryException('OFFSET does not accept keyset continuation');
     }
 
     DbQueryService.requireRows(pageSize + 1);

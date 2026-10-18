@@ -9,4 +9,7 @@ public with sharing class DbPageRequest {
   public Integer offsetSize { get; set; }
   @AuraEnabled
   public Id afterId { get; set; }
+  /** Last sort value paired with afterId; null represents a null field value. */
+  @AuraEnabled
+  public Object afterValue { get; set; }
 }

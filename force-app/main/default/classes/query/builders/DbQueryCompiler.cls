@@ -61,6 +61,7 @@ public with sharing class DbQueryCompiler {
     if (request.fields == null || request.fields.isEmpty()) {
       throw new DbQueryException('At least one SELECT field is required');
     }
+
     Schema.SObjectType objectType = SchemaHelper.getSObjectType(
       request.objectName
     );
@@ -135,7 +136,22 @@ public with sharing class DbQueryCompiler {
     if (!SchemaHelper.isSortable(objectName, orderField)) {
       throw new DbQueryException('Field is not sortable: ' + orderField);
     }
+
+    if (
+      request.page != null &&
+      request.page.strategy != null &&
+      request.page.strategy.trim().equalsIgnoreCase(DbPageRequest.KEYSET)
+    ) {
+      if (seen.add(orderField.toLowerCase())) {
+        selectFields.add(orderField);
+      }
+      if (seen.add('id')) {
+        selectFields.add('Id');
+      }
+    }
+
     DbQueryPlan plan = new DbQueryPlan();
+    plan.objectName = objectName;
     plan.selectFrom =
       'SELECT ' +
       String.join(selectFields, ', ') +
@@ -216,7 +232,7 @@ public with sharing class DbQueryCompiler {
       return coerceList((List<Object>) value, type, path, operator);
     }
 
-    return coerceScalar(value, type, path);
+    return coerceFieldValue(value, type, path);
   }
 
   private static Object coerceList(
@@ -235,9 +251,17 @@ public with sharing class DbQueryCompiler {
       Set<String> converted = new Set<String>();
 
       for (Object item : values) {
-        converted.add((String) coerceScalar(item, type, path));
+        converted.add((String) coerceFieldValue(item, type, path));
       }
 
+      return converted;
+    }
+
+    if (type == Schema.DisplayType.INTEGER) {
+      Set<Integer> converted = new Set<Integer>();
+      for (Object item : values) {
+        converted.add((Integer) coerceFieldValue(item, type, path));
+      }
       return converted;
     }
 
@@ -245,7 +269,7 @@ public with sharing class DbQueryCompiler {
       Set<Decimal> converted = new Set<Decimal>();
 
       for (Object item : values) {
-        converted.add((Decimal) coerceScalar(item, type, path));
+        converted.add((Decimal) coerceFieldValue(item, type, path));
       }
 
       return converted;
@@ -255,7 +279,7 @@ public with sharing class DbQueryCompiler {
       Set<Date> converted = new Set<Date>();
 
       for (Object item : values) {
-        converted.add((Date) coerceScalar(item, type, path));
+        converted.add((Date) coerceFieldValue(item, type, path));
       }
 
       return converted;
@@ -265,7 +289,7 @@ public with sharing class DbQueryCompiler {
       Set<Datetime> converted = new Set<Datetime>();
 
       for (Object item : values) {
-        converted.add((Datetime) coerceScalar(item, type, path));
+        converted.add((Datetime) coerceFieldValue(item, type, path));
       }
 
       return converted;
@@ -275,7 +299,7 @@ public with sharing class DbQueryCompiler {
       Set<Id> converted = new Set<Id>();
 
       for (Object item : values) {
-        converted.add((Id) coerceScalar(item, type, path));
+        converted.add((Id) coerceFieldValue(item, type, path));
       }
 
       return converted;
@@ -285,7 +309,7 @@ public with sharing class DbQueryCompiler {
       Set<Boolean> converted = new Set<Boolean>();
 
       for (Object item : values) {
-        converted.add((Boolean) coerceScalar(item, type, path));
+        converted.add((Boolean) coerceFieldValue(item, type, path));
       }
 
       return converted;
@@ -296,7 +320,15 @@ public with sharing class DbQueryCompiler {
     );
   }
 
-  private static Object coerceScalar(
+  /**
+   * Converts a scalar boundary/filter value to the described field type.
+   * @param value Native Apex value or a scalar from a JSON request
+   * @param type Described Salesforce field type
+   * @param path Field path used in conversion errors
+   * @return A typed SOQL bind value, preserving null
+   * @throws DbQueryException when conversion is not possible
+   */
+  public static Object coerceFieldValue(
     Object value,
     Schema.DisplayType type,
     String path
@@ -313,13 +345,32 @@ public with sharing class DbQueryCompiler {
       }
 
       if (type == Schema.DisplayType.DATETIME) {
-        return value instanceof Datetime
+        if (value instanceof Datetime) {
+          return value;
+        }
+        String text = String.valueOf(value);
+        return text.contains('T')
+          ? (Datetime) JSON.deserialize(JSON.serialize(text), Datetime.class)
+          : Datetime.valueOf(text);
+      }
+      if (type == Schema.DisplayType.TIME) {
+        return value instanceof Time
           ? value
-          : Datetime.valueOf(String.valueOf(value));
+          : (Time) JSON.deserialize(JSON.serialize(value), Time.class);
       }
 
       if (NUMERIC_TYPES.contains(type)) {
-        return Decimal.valueOf(String.valueOf(value));
+        Decimal numberValue = Decimal.valueOf(String.valueOf(value));
+        if (type == Schema.DisplayType.INTEGER) {
+          Integer integerValue = numberValue.intValue();
+          if (numberValue != integerValue) {
+            throw new DbQueryException(
+              'Expected a whole integer for field ' + path
+            );
+          }
+          return integerValue;
+        }
+        return numberValue;
       }
 
       if (type == Schema.DisplayType.BOOLEAN) {
