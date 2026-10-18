@@ -225,7 +225,7 @@ private class ApiHttpClientTest {
   static void rejectsNullTransport() {
     Test.startTest();
     try {
-      new ApiHttpClient(null);
+      new ApiHttpClient((IApiTransport) null);
       Assert.fail('Missing transport');
     } catch (ApiException failure) {
       Assert.areEqual(
