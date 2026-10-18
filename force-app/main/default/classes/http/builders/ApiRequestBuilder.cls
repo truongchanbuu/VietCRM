@@ -38,7 +38,11 @@ public with sharing class ApiRequestBuilder {
     ) {
       throw invalid('Timeout must be between 1 and 120000 milliseconds.');
     }
-    if ((method == 'GET' || method == 'HEAD') && request.body != null) {
+    if (
+      (method == 'GET' || method == 'HEAD') &&
+      (request.body != null ||
+      request.codec != null)
+    ) {
       throw invalid('GET and HEAD requests must not contain a body.');
     }
 
@@ -47,9 +51,7 @@ public with sharing class ApiRequestBuilder {
     result.setMethod(method);
     result.setTimeout(request.timeoutMillis);
     applyHeaders(result, request.headers);
-    if (request.body != null) {
-      result.setBody(request.body);
-    }
+    applyBody(result, request);
 
     return result;
   }
@@ -127,6 +129,52 @@ public with sharing class ApiRequestBuilder {
 
       target.setHeader(name, value);
     }
+  }
+
+  private static void applyBody(HttpRequest target, ApiRequest request) {
+    if (request.codec == null) {
+      if (request.payload != null) {
+        throw invalid('A codec is required when payload is supplied.');
+      }
+      if (request.body != null)
+        target.setBody(request.body);
+      return;
+    }
+    if (request.body != null) {
+      throw invalid('Choose raw body or codec payload, not both.');
+    }
+
+    String contentType;
+    if (request.headers != null) {
+      for (String name : request.headers.keySet()) {
+        if (name.equalsIgnoreCase('Content-Type')) {
+          contentType = request.headers.get(name);
+          break;
+        }
+      }
+    }
+    if (contentType == null)
+      contentType = request.codec.getContentType();
+    if (
+      String.isBlank(contentType) ||
+      contentType.contains('\r') ||
+      contentType.contains('\n') ||
+      !request.codec.supports(contentType)
+    ) {
+      throw invalid('Content-Type is not supported by the selected codec.');
+    }
+
+    String body;
+    try {
+      body = request.codec.encode(request.payload);
+    } catch (Exception failure) {
+      throw invalid('Request payload could not be encoded.');
+    }
+    if (body == null)
+      throw invalid('Codec must return a text body.');
+
+    target.setHeader('Content-Type', contentType);
+    target.setBody(body);
   }
 
   private static ApiException invalid(String message) {

@@ -38,11 +38,29 @@ public with sharing class ApiWriter {
     Integer statusCode,
     ApiResponse payload
   ) {
+    write(target, statusCode, payload, new ApiJsonCodec());
+  }
+
+  /**
+   * Keeps HTTP/envelope policy independent of the selected text representation.
+   * @param target Explicit RestResponse
+   * @param statusCode Supported Apex REST status
+   * @param payload Safe response envelope
+   * @param codec Explicit text representation; no global format registry is used
+   * @throws ApiException for invalid configuration or encoding failure
+   */
+  public static void write(
+    RestResponse target,
+    Integer statusCode,
+    ApiResponse payload,
+    IApiBodyCodec codec
+  ) {
     if (
       target == null ||
       !supports(statusCode) ||
       payload == null ||
-      payload.success == null
+      payload.success == null ||
+      codec == null
     ) {
       throw ApiException.create(
         500,
@@ -63,13 +81,42 @@ public with sharing class ApiWriter {
       );
     }
 
+    String contentType = codec.getContentType();
+    if (
+      String.isBlank(contentType) ||
+      contentType.contains('\r') ||
+      contentType.contains('\n')
+    ) {
+      throw ApiException.create(
+        500,
+        'INVALID_RESPONSE',
+        'Codec must provide a valid Content-Type.'
+      );
+    }
+
     Blob body;
     if (statusCode != 204 && statusCode != 304) {
-      body = Blob.valueOf(JSON.serialize(payload));
+      try {
+        String encoded = codec.encode(payload);
+        if (encoded == null) {
+          throw ApiException.create(
+            500,
+            'INVALID_RESPONSE',
+            'Codec must return a text body.'
+          );
+        }
+        body = Blob.valueOf(encoded);
+      } catch (Exception failure) {
+        throw ApiException.create(
+          500,
+          'INVALID_RESPONSE',
+          'Response could not be encoded.'
+        );
+      }
     }
 
     target.statusCode = statusCode;
-    target.addHeader('Content-Type', 'application/json; charset=UTF-8');
+    target.addHeader('Content-Type', contentType);
     target.addHeader('Cache-Control', 'no-store');
     target.responseBody = body;
   }
