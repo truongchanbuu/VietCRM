@@ -6,5 +6,9 @@
   "http": {
     "dependencies": [],
     "objects": []
+  },
+  "logging": {
+    "dependencies": [],
+    "objects": ["LogEvent__e", "Log__c"]
   }
 }

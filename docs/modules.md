@@ -24,6 +24,12 @@ Tests are grouped by strategy, typed filters, schema access, security, extension
 
 The HTTP module is independent of query and any business metadata. The client owns the service base endpoint and execution transport; each request owns the relative path and operation options. DTOs separate outbound raw results from public REST envelopes. ApiResponseFactory centralizes envelope construction; named ApiWriter helpers bind standard statuses and error codes. Builders validate full batches before callout side effects; services orchestrate ordered partial outcomes through an injected transport. REST readers/writers and exception mapping operate on explicit request/response objects. IApiBodyFormatter separates UTF-8 text representation from transport and HTTP policy; ApiJsonFormatter is the default and only built-in formatter. Applications explicitly supply additional formatters without changing the client or registering global state. No SOQL/DML occurs in the module. Callout batches respect remaining transaction callout slots; application-owned scheduling, persistence, idempotency and retry policies remain outside the toolkit. See [HTTP contracts](http-integration.md).
 
+## Logging
+
+Logging is an independent module with no application-module dependencies. Its Apex and trigger are deployable core source, but its `LogEvent__e` and `Log__c` schema is supplied by the consuming application. Developers refactor the concrete template for their event, object, and field names; see [the logger adaptation guide](logging.md).
+
+The producer explicitly checks event create permission and publishes buffered entries on flush. The event subscriber owns a documented system-mode insert boundary. Publishers do not need stored-log access; readers receive a separate application-owned grant. Query and HTTP do not depend on logging.
+
 ## Validation policy
 
 Each feature needs behavior assertions, error cases, bulk tests where it processes collections, and tests for its real security boundary. Retain at least Salesforce's per-class 75% coverage requirement, targeting 90%+ on new logic. Coverage alone is not correctness: deep paging must verify exact population, no duplicate IDs, and termination.

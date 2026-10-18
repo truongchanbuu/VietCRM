@@ -1,6 +1,6 @@
 # salesforce-develop-kit
 
-A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. The deployable core contains independent database query/pagination and HTTP integration modules. Logging, feature flags, and historical CRM code are preserved on `feature/developer-kit-foundation`.
+A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. The deployable core contains independent database query/pagination, HTTP integration, and logging modules. Logging is a developer-adaptable template that assumes an existing event and log-object schema; object definitions are supplied by the consuming application. Feature flags and historical CRM code are preserved on `feature/developer-kit-foundation`.
 
 ## Structure
 
@@ -9,17 +9,19 @@ force-app/main/default/
   classes/
     query/{services,builders,dto,exceptions,factories,interfaces,selectors,strategies,tests}/
     http/{services,builders,dto,exceptions,factories,interfaces,handlers,strategies,tests}/
+    logging/{services,providers,dto,exceptions,handlers,tests}/
+  triggers/              # Log event subscriber
 examples/apex/            # Opt-in usage examples
 .agents/skills/           # Pinned Salesforce-maintained development skills
 .codex/config.toml        # Optional local DX MCP connection for dev
 scripts/quality/         # Module and deployment validation
 ```
 
-Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. Both modules have no dependencies on other application modules. HTTP clients own their service base (for example, `new ApiHttpClient('callout:CRM_API')`); operations supply relative paths such as `client.get('/v1/accounts')`.
+Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. All three modules have no dependencies on other application modules. HTTP clients own their service base (for example, `new ApiHttpClient('callout:CRM_API')`); operations supply relative paths such as `client.get('/v1/accounts')`.
 
 ## Setup and checks
 
-Use Node 22 LTS, Salesforce CLI, Java 21 for Code Analyzer, and an authenticated development org. The project retains API version 67.0.
+Use Node 22 LTS, Salesforce CLI, Java 21 for Code Analyzer, and an authenticated development org. The project retains API version 67.0. Before validating or deploying `force-app`, provide the logger schema described in [the adaptation guide](docs/logging.md), or refactor the logger to match the objects and fields already in your org.
 
 ```sh
 npm ci
@@ -41,12 +43,13 @@ RunLocalTests also includes existing unmanaged tests in the target org. Use a cl
 
 ## Modules
 
-| Module | Entry points                                                                          | Extension points                                         |
-| ------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Query  | `DbQueryService.execute`, `queryLocator`, `fetchPage`                                 | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory` |
-| HTTP   | `ApiHttpClient.get/post/put/patch/deleteRequest/sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | `IApiTransport` and explicit `IApiBodyFormatter`                     |
+| Module  | Entry points                                                                                                           | Extension points                                                   |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Query   | `DbQueryService.execute`, `queryLocator`, `fetchPage`                                                                  | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory`           |
+| HTTP    | `ApiHttpClient.get/post/put/patch/deleteRequest/sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | `IApiTransport` and explicit `IApiBodyFormatter`                   |
+| Logging | `LoggerService.fromSource`, `info`, `error`, `flush`, `flushWithResult`                                                | Adapt the concrete event/object/field mapping for your application |
 
-See [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
+See [logging](docs/logging.md), [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
 
 ## Quality and security
 

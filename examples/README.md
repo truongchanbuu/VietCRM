@@ -1,5 +1,9 @@
 # Usage examples
 
+## Logging
+
+See the [logger adaptation guide](../docs/logging.md) and [usage example](logging/logger.apex). Logger Apex lives in `force-app` and assumes the consuming org already has the sample event, log object, and fields, or that developers have adapted the source to their own schema.
+
 ## HTTP integration
 
 See the [HTTP examples guide](http/README.md) for the full feature map, runnable local scripts, real-callout scripts, every response helper, endpoint exception handling, and formatter/transport extension contracts.
