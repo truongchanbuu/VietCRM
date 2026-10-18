@@ -9,3 +9,8 @@
 .vscode
 
 coverage/
+# Upstream skill templates and historical snapshots are not authored source.
+.agents/
+archive/
+.local-state/
+artifacts/

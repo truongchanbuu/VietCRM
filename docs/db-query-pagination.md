@@ -1,6 +1,6 @@
 # DB query contracts and pagination
 
-`DbQueryRequest`, `DbQueryResult`, and `DbQueryException` belong to the database layer. CSV and PII masking remain report concerns. `GenericSelector.execute(ReportRequest, maxRows)` is a compatibility adapter; it translates query errors back to `ConfigReportException`. `CaseSelector` now uses the database contract directly.
+`DbQueryRequest`, `DbQueryResult`, and `DbQueryException` belong to the database layer. CSV and PII masking remain report concerns. The old report adapters and Case selectors are preserved on `feature/developer-kit-foundation` and are excluded from this query-only branch.
 
 `DbQueryCompiler` validates object/field paths, operators, and filter values. All executors use bind variables and explicit `AccessLevel.USER_MODE`. Pagination values are not interpolated into SOQL. Queries always have deterministic ordering: `Id` by default, or the requested field followed by `Id` as a tie breaker.
 
@@ -42,7 +42,7 @@ if (first.hasNext) {
 }
 ```
 
-Cursor continuation accepts the native cursor separately, so it cannot silently ignore a changed query request. To change filters or ordering, open a new cursor. Keep cursor handles scoped to the user who created them; restart when the platform reports expiration. This change does not expose a new unrestricted Aura controller or alter the existing report endpoint.
+Cursor continuation accepts the native cursor separately, so it cannot silently ignore a changed query request. To change filters or ordering, open a new cursor. Keep cursor handles scoped to the user who created them; restart when the platform reports expiration. The module does not expose an Aura controller.
 
 ```apex
 // Inside Database.Batchable.start():
@@ -52,28 +52,16 @@ request.fields = new List<String>{ 'Id', 'Name' };
 return DbQueryService.queryLocator(request);
 ```
 
-To add another page strategy, implement `IDbPageStrategy` and register it in `DbQueryService.execute`. The compiler and report adapter do not change. QueryLocator stays separate because its lifecycle and result type differ from a fetched page.
+To add another page strategy, implement `IDbPageStrategy`, subclass `DbPageStrategyFactory`, and pass that factory to the three-argument `DbQueryService.execute` overload. The compiler and service entry points do not change. QueryLocator stays separate because its lifecycle and result type differ from a fetched page.
 
-## Compatibility
+## Migration and validation
 
-Existing report request/result properties and post-processors remain available. Negative offsets now raise a validation error. Queries without explicit ordering now sort by Id. Low row budget now fails explicitly instead of returning an incomplete page with misleading `truncated=false`.
+The core API is `DbQueryService`. Report-specific DTOs, processors, and the legacy adapter are preserved on the foundation branch; applications using them must migrate deliberately. Negative offsets fail validation. Queries without explicit ordering sort by Id. Insufficient row budget raises an explicit error.
+
+Run `npm run validate:core -- --target-org dev` to compile all current core source and execute its local test classes in a check-only deployment. Tests cover strategy boundaries, cursor deletion handling, typed filters, schema access, denied object access, and traversal across 2,501 records.
 
 ## Platform references
 
 - [Salesforce cursor release notes](https://help.salesforce.com/s/articleView?id=release-notes.rn_apex_cursors.htm&release=260&type=5)
 - [PaginationCursor reference](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_PaginationCursor.htm)
-- [Database reference (queryWithBinds and getQueryLocatorWithBinds)](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database.htm)
-
-## Validation scope
-
-The dry-run package contains `classes/query`, `classes/selectors`, and the new `DbQueryServiceTest` class. It runs that test together with the existing `GenericSelectorTest`, `ConfigReportServiceTest`, and `PiiMaskProcessorTest` classes on the `dev` org. The three existing test classes are taken from the org, not uploaded from the working tree. This validates the query change and compatibility with the deployed report contract; it is not a full validation of other in-progress local changes. No metadata is persisted by this check-only deployment.
-
-```sh
-sf project deploy start --dry-run --target-org dev \
-  --source-dir force-app/main/default/classes/query \
-  --source-dir force-app/main/default/classes/selectors \
-  --source-dir force-app/main/default/classes/tests/DbQueryServiceTest.cls \
-  --test-level RunSpecifiedTests \
-  --tests DbQueryServiceTest --tests GenericSelectorTest \
-  --tests ConfigReportServiceTest --tests PiiMaskProcessorTest
-```
+- [Database reference](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database.htm)

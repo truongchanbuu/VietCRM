@@ -46,3 +46,7 @@ $RECYCLE.BIN/
 **/__pycache__/
 **/.venv/
 **/venv/
+
+# Local recovery snapshots and generated validation evidence
+.local-state/
+artifacts/

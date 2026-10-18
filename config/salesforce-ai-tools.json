@@ -1,0 +1,23 @@
+{
+  "skills": {
+    "repository": "https://github.com/forcedotcom/sf-skills",
+    "commit": "4bbae5c421e51b40e4169afa72c4496372a602a7",
+    "directory": ".agents/skills",
+    "names": [
+      "platform-apex-generate",
+      "platform-apex-test-generate",
+      "platform-apex-test-run",
+      "platform-metadata-retrieve",
+      "platform-metadata-deploy",
+      "dx-code-analyzer-run",
+      "dx-code-analyzer-configure"
+    ]
+  },
+  "mcp": {
+    "package": "@salesforce/mcp",
+    "version": "0.30.15",
+    "orgAllowlist": ["dev"],
+    "endOfLife": "2026-11-02",
+    "announcement": "https://github.com/forcedotcom/mcp/issues/46"
+  }
+}

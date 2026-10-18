@@ -1,0 +1,47 @@
+name: Core quality
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npm test
+      - run: npm install --global @salesforce/cli@2.153.5
+      - run: sf plugins install @salesforce/plugin-code-analyzer@5.16.0
+      - run: npm run analyze:core
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-analyzer
+          path: artifacts/
+  apex:
+    if: github.event_name == 'workflow_dispatch'
+    environment: salesforce-validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --global @salesforce/cli@2.153.5
+      - name: Authenticate validation org
+        env:
+          SF_AUTH_URL: ${{ secrets.SF_AUTH_URL }}
+        run: |
+          test -n "$SF_AUTH_URL"
+          sf org login sfdx-url --sfdx-url-stdin --alias ci-validation <<< "$SF_AUTH_URL"
+      - run: npm run validate:core -- --target-org ci-validation
