@@ -1,5 +1,9 @@
 # Usage examples
 
+## Trigger toolkit
+
+See the opt-in [Account trigger and validation fixtures](trigger/README.md). These files stay outside `force-app`; copy them explicitly into an isolated development project with the candidate core to validate them.
+
 ## Logging
 
 See the [logger adaptation guide](../docs/logging.md) and [usage example](logging/logger.apex). Logger Apex lives in `force-app` and assumes the consuming org already has the sample event, log object, and fields, or that developers have adapted the source to their own schema.

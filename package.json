@@ -10,7 +10,7 @@
     "prettier:verify": "prettier --check \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
     "prepare": "husky || true",
     "precommit": "lint-staged",
-    "check:modules": "node scripts/quality/check-modules.mjs",
+    "check:modules": "node --test scripts/quality/check-modules.test.mjs && node scripts/quality/check-modules.mjs",
     "format:core:check": "prettier --check \"force-app/**/*.{cls,trigger,xml}\" \"scripts/quality/*.mjs\" \"config/modules.json\"",
     "validate:core": "node scripts/quality/validate-core.mjs",
     "analyze:core": "mkdir -p artifacts && sf code-analyzer run --workspace force-app --target force-app --rule-selector pmd:Recommended --include-fixes --severity-threshold 2 --output-file artifacts/code-analyzer-results-ci.json"

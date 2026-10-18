@@ -1,6 +1,6 @@
 # salesforce-develop-kit
 
-A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. The deployable core contains independent database query/pagination, HTTP integration, and logging modules. Logging is a developer-adaptable template that assumes an existing event and log-object schema; object definitions are supplied by the consuming application. Feature flags and historical CRM code are preserved on `feature/developer-kit-foundation`.
+A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. The deployable core contains independent database query/pagination, HTTP integration, logging, and trigger modules. Logging is a developer-adaptable template that assumes an existing event and log-object schema; object definitions are supplied by the consuming application. Feature flags and historical CRM code are preserved on `feature/developer-kit-foundation`.
 
 ## Structure
 
@@ -10,14 +10,15 @@ force-app/main/default/
     query/{services,builders,dto,exceptions,factories,interfaces,selectors,strategies,tests}/
     http/{services,builders,dto,exceptions,factories,interfaces,handlers,strategies,tests}/
     logging/{services,providers,dto,exceptions,handlers,tests}/
+    trigger/{handlers,dto,exceptions,tests}/
   triggers/              # Log event subscriber
-examples/apex/            # Opt-in usage examples
+examples/                 # Opt-in usage examples and trigger integration fixtures
 .agents/skills/           # Pinned Salesforce-maintained development skills
 .codex/config.toml        # Optional local DX MCP connection for dev
 scripts/quality/         # Module and deployment validation
 ```
 
-Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. All three modules have no dependencies on other application modules. HTTP clients own their service base (for example, `new ApiHttpClient('callout:CRM_API')`); operations supply relative paths such as `client.get('/v1/accounts')`.
+Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. All four modules have no dependencies on other application modules. HTTP clients own their service base (for example, `new ApiHttpClient('callout:CRM_API')`); operations supply relative paths such as `client.get('/v1/accounts')`.
 
 ## Setup and checks
 
@@ -48,8 +49,9 @@ RunLocalTests also includes existing unmanaged tests in the target org. Use a cl
 | Query   | `DbQueryService.execute`, `queryLocator`, `fetchPage`                                                                  | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory`           |
 | HTTP    | `ApiHttpClient.get/post/put/patch/deleteRequest/sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | `IApiTransport` and explicit `IApiBodyFormatter`                   |
 | Logging | `LoggerService.fromSource`, `info`, `error`, `flush`, `flushWithResult`                                                | Adapt the concrete event/object/field mapping for your application |
+| Trigger | `AbstractTriggerHandler.run`, `TriggerContext.current`                                                                 | Seven protected callbacks and `context.getChangedRecords`          |
 
-See [logging](docs/logging.md), [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
+See [trigger toolkit](docs/trigger-toolkit.md), [logging](docs/logging.md), [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
 
 ## Quality and security
 
