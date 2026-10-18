@@ -72,6 +72,6 @@ npm run analyze:core
 npm run validate:core -- --target-org dev
 ```
 
-Validation uploads all local source and tests as a check-only deployment. The logger tests exercise 251 buffered events, a full 2,000-event batch at the persistence boundary with partial success, real event delivery of a 252-event mixed batch, event mapping, field limits, explicit publish retries, duplicate-error classification, access denial, stored-log field restrictions, reader isolation, and the trusted persistence guard. Simulated platform results cover transient failures that cannot be produced reliably in a unit test. Actual cross-delivery deduplication requires the consuming application's unique UUID constraint.
+Validation uploads all local source and tests as a check-only deployment. The logger tests exercise 251 buffered events, a full 2,000-event batch at the persistence boundary with partial success, real event delivery of a 252-event mixed batch, event mapping, field limits, explicit publish retries, duplicate-error classification, access denial, reader isolation, and the trusted persistence guard. Simulated platform results cover transient failures that cannot be produced reliably in a unit test. Actual cross-delivery deduplication requires the consuming application's unique UUID constraint.
 
 Apex tests permit publication of at most 500 event messages per test. The 2,000-event case therefore calls the private, test-visible persistence boundary; the smaller delivery tests verify the actual trigger path.

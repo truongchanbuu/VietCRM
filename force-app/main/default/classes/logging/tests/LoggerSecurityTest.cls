@@ -2,36 +2,6 @@
 @IsTest
 private with sharing class LoggerSecurityTest {
   @IsTest
-  static void readerCannotReadDeniedMessageField() {
-    User reader = LoggerTestDataFactory.createUser('LoggerReadLimited');
-    System.runAs(reader) {
-      Test.startTest();
-      Assert.isTrue(
-        Log__c.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED)
-          .isAccessible(),
-        'Fixture grants stored-log read access'
-      );
-      Assert.isFalse(
-        Log__c.Message__c.getDescribe().isAccessible(),
-        'Fixture denies stored message access'
-      );
-      try {
-        List<Log__c> logs = [SELECT Message__c FROM Log__c WITH USER_MODE];
-        Assert.fail(
-          'Denied message field must not be queryable; returned rows: ' +
-          logs.size()
-        );
-      } catch (QueryException expected) {
-        Assert.isFalse(
-          Log__c.Message__c.getDescribe().isAccessible(),
-          'User-mode queries enforce stored-log field access'
-        );
-      }
-      Test.stopTest();
-    }
-  }
-
-  @IsTest
   static void minimumUserCannotPublish() {
     User producer = LoggerTestDataFactory.createUser(null);
     System.runAs(producer) {

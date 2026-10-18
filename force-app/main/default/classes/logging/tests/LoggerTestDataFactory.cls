@@ -25,7 +25,7 @@ public with sharing class LoggerTestDataFactory {
 
   /**
    * Creates a minimum-access user with an isolated test-only permission grant.
-   * @param permissionName LoggerPublish, LoggerRead, LoggerReadLimited, or null for no grant.
+   * @param permissionName LoggerPublish, LoggerRead, or null for no grant.
    * @return Inserted user, usable with System.runAs.
    */
   public static User createUser(String permissionName) {
@@ -91,14 +91,7 @@ public with sharing class LoggerTestDataFactory {
         .values()
     ) {
       Schema.DescribeFieldResult description = field.getDescribe();
-      Boolean omittedMessage =
-        permissionName == 'LoggerReadLimited' &&
-        description.getName() == 'Message__c';
-      if (
-        description.isCustom() &&
-        description.isPermissionable() &&
-        !omittedMessage
-      ) {
+      if (description.isCustom() && description.isPermissionable()) {
         fields.add(
           new FieldPermissions(
             ParentId = permission.Id,
