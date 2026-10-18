@@ -1,5 +1,8 @@
 /** Outbound HTTP request configuration. Use Named Credentials for authentication. */
 public with sharing class ApiRequest {
+  /** Relative to the service endpoint owned by ApiHttpClient. */
+  public String path;
+  /** Legacy absolute endpoint for clients constructed without a base endpoint. */
   public String endpoint;
   public String method = 'GET';
   public String body;

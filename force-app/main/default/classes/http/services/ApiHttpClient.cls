@@ -4,6 +4,7 @@
  */
 public with sharing class ApiHttpClient {
   private IApiTransport transport;
+  private String baseEndpoint;
 
   /** Uses the platform HTTP transport. */
   public ApiHttpClient() {
@@ -27,52 +28,71 @@ public with sharing class ApiHttpClient {
   }
 
   /**
+   * Binds the client to a service using the platform HTTP transport.
+   * @param baseEndpoint HTTPS or Named Credential base, optionally with a path prefix
+   */
+  public ApiHttpClient(String baseEndpoint) {
+    this(baseEndpoint, new ApiHttpTransport());
+  }
+
+  /**
+   * Keeps service selection and execution policy on the client.
+   * @param baseEndpoint HTTPS or Named Credential base without query or fragment
+   * @param transport Native HTTP adapter
+   */
+  public ApiHttpClient(String baseEndpoint, IApiTransport transport) {
+    this(transport);
+    ApiRequestBuilder.validateBaseEndpoint(baseEndpoint);
+    this.baseEndpoint = baseEndpoint;
+  }
+
+  /**
    * Sends a GET request through the same validated, budgeted client.
-   * @param endpoint HTTPS or Named Credential endpoint
+   * @param path Service-relative path, or full endpoint for an unbound client
    * @return Raw HTTP outcome; decoding remains explicit
    */
-  public ApiCalloutResult get(String endpoint) {
-    return sendRequest('GET', endpoint, null);
+  public ApiCalloutResult get(String path) {
+    return sendRequest('GET', path, null);
   }
 
   /**
    * Sends a POST request through the same validated, budgeted client.
-   * @param endpoint HTTPS or Named Credential endpoint
+   * @param path Service-relative path, or full endpoint for an unbound client
    * @param payload Application data serialized as JSON; null becomes JSON null
    * @return Raw HTTP outcome; decoding remains explicit
    */
-  public ApiCalloutResult post(String endpoint, Object payload) {
-    return sendRequest('POST', endpoint, payload);
+  public ApiCalloutResult post(String path, Object payload) {
+    return sendRequest('POST', path, payload);
   }
 
   /**
    * Sends a PUT request through the same validated, budgeted client.
-   * @param endpoint HTTPS or Named Credential endpoint
+   * @param path Service-relative path, or full endpoint for an unbound client
    * @param payload Application data serialized as JSON; null becomes JSON null
    * @return Raw HTTP outcome; decoding remains explicit
    */
-  public ApiCalloutResult put(String endpoint, Object payload) {
-    return sendRequest('PUT', endpoint, payload);
+  public ApiCalloutResult put(String path, Object payload) {
+    return sendRequest('PUT', path, payload);
   }
 
   /**
    * Sends a PATCH request through the same validated, budgeted client.
-   * @param endpoint HTTPS or Named Credential endpoint
+   * @param path Service-relative path, or full endpoint for an unbound client
    * @param payload Application data serialized as JSON; null becomes JSON null
    * @return Raw HTTP outcome; decoding remains explicit
    */
-  public ApiCalloutResult patch(String endpoint, Object payload) {
-    return sendRequest('PATCH', endpoint, payload);
+  public ApiCalloutResult patch(String path, Object payload) {
+    return sendRequest('PATCH', path, payload);
   }
 
   /**
    * Sends a DELETE request through the same validated, budgeted client.
-   * @param endpoint HTTPS or Named Credential endpoint
+   * @param path Service-relative path, or full endpoint for an unbound client
    * Apex reserves delete, so this shortcut uses deleteRequest.
    * @return Raw HTTP outcome; decoding remains explicit
    */
-  public ApiCalloutResult deleteRequest(String endpoint) {
-    return sendRequest('DELETE', endpoint, null);
+  public ApiCalloutResult deleteRequest(String path) {
+    return sendRequest('DELETE', path, null);
   }
 
   /**
@@ -110,7 +130,7 @@ public with sharing class ApiHttpClient {
 
     List<HttpRequest> prepared = new List<HttpRequest>();
     for (ApiRequest request : requests) {
-      prepared.add(ApiRequestBuilder.build(request));
+      prepared.add(ApiRequestBuilder.build(request, baseEndpoint));
     }
 
     List<ApiCalloutResult> results = new List<ApiCalloutResult>();
@@ -127,7 +147,11 @@ public with sharing class ApiHttpClient {
     Object payload
   ) {
     ApiRequest request = new ApiRequest();
-    request.endpoint = endpoint;
+    if (baseEndpoint == null) {
+      request.endpoint = endpoint;
+    } else {
+      request.path = endpoint;
+    }
     request.method = method;
     if (method == 'POST' || method == 'PUT' || method == 'PATCH') {
       request.formatter = new ApiJsonFormatter();

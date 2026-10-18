@@ -24,10 +24,24 @@ public with sharing class ApiRequestBuilder {
    * @throws ApiException for invalid configuration
    */
   public static HttpRequest build(ApiRequest request) {
+    return build(request, null);
+  }
+
+  /**
+   * Resolves the client's service and request path without mutating the DTO.
+   * @param request HTTP operation and per-request configuration
+   * @param baseEndpoint Client-owned base; null supports legacy absolute endpoints
+   * @return Validated native request, without network or database work
+   */
+  public static HttpRequest build(ApiRequest request, String baseEndpoint) {
     if (request == null)
       throw invalid('Request is required.');
 
-    validateEndpoint(request.endpoint);
+    String endpoint = resolveEndpoint(
+      baseEndpoint,
+      request.path,
+      request.endpoint
+    );
     String method = String.isBlank(request.method)
       ? ''
       : request.method.trim().toUpperCase();
@@ -49,13 +63,65 @@ public with sharing class ApiRequestBuilder {
     }
 
     HttpRequest result = new HttpRequest();
-    result.setEndpoint(withQuery(request.endpoint, request.queryParameters));
+    result.setEndpoint(withQuery(endpoint, request.queryParameters));
     result.setMethod(method);
     result.setTimeout(request.timeoutMillis);
     applyHeaders(result, request.headers);
     applyBody(result, request);
 
     return result;
+  }
+
+  /**
+   * Validates service configuration once when constructing a client.
+   * @param baseEndpoint HTTPS or Named Credential base with an optional path prefix
+   * @throws ApiException when the base contains an invalid endpoint, query or fragment
+   */
+  public static void validateBaseEndpoint(String baseEndpoint) {
+    validateEndpoint(baseEndpoint);
+    if (baseEndpoint.contains('?')) {
+      throw invalid('Base endpoint must not contain query parameters.');
+    }
+  }
+
+  /**
+   * Appends the request path to the client-owned service prefix.
+   * @param baseEndpoint Client-owned service, or null for legacy unbound clients
+   * @param path Slash-prefixed service-relative path; null or empty addresses the base
+   * @param endpoint Legacy full endpoint, only for unbound clients
+   * @return Validated full endpoint without changing any request fields
+   */
+  private static String resolveEndpoint(
+    String baseEndpoint,
+    String path,
+    String endpoint
+  ) {
+    if (baseEndpoint == null) {
+      if (path != null) {
+        throw invalid(
+          'A client base endpoint is required when path is supplied.'
+        );
+      }
+      validateEndpoint(endpoint);
+      return endpoint;
+    }
+
+    validateBaseEndpoint(baseEndpoint);
+    if (endpoint != null) {
+      throw invalid(
+        'Use request.path with a client that owns a base endpoint.'
+      );
+    }
+    String relative = path == null ? '' : path;
+    if (
+      (!relative.startsWith('/') && relative != '') || relative.startsWith('//')
+    ) {
+      throw invalid('Request path must be empty or start with one slash.');
+    }
+
+    String resolved = baseEndpoint.replaceAll('/+$', '') + relative;
+    validateEndpoint(resolved);
+    return resolved;
   }
 
   private static void validateEndpoint(String endpoint) {
@@ -71,9 +137,9 @@ public with sharing class ApiRequestBuilder {
       endpoint
     );
     Boolean https = Pattern.matches('^https://[^/@?#]+(?:[/?].*)?$', endpoint);
-
-    if (!named && !https)
+    if (!named && !https) {
       throw invalid('Use HTTPS or a Named Credential endpoint.');
+    }
   }
 
   private static String withQuery(
