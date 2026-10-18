@@ -8,7 +8,7 @@ A reusable Salesforce developer kit for common development tasks, with extensibl
 force-app/main/default/
   classes/
     query/{services,builders,dto,exceptions,factories,interfaces,selectors,strategies,tests}/
-    http/{services,builders,dto,exceptions,factories,interfaces,handlers,tests}/
+    http/{services,builders,dto,exceptions,factories,interfaces,handlers,strategies,tests}/
 examples/apex/            # Opt-in usage examples
 .agents/skills/           # Pinned Salesforce-maintained development skills
 .codex/config.toml        # Optional local DX MCP connection for dev
@@ -44,7 +44,7 @@ RunLocalTests also includes existing unmanaged tests in the target org. Use a cl
 | Module | Entry points                                                                          | Extension points                                         |
 | ------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | Query  | `DbQueryService.execute`, `queryLocator`, `fetchPage`                                 | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory` |
-| HTTP   | `ApiHttpClient.sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | Constructor-injected `IApiTransport`                     |
+| HTTP   | `ApiHttpClient.sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | `IApiTransport` and explicit `IApiBodyCodec`                     |
 
 See [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
 

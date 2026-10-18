@@ -7,17 +7,18 @@ The independent `http` module provides outbound HTTP orchestration and explicit 
 | Role       | Classes                                                      | Purpose                                                   |
 | ---------- | ------------------------------------------------------------ | --------------------------------------------------------- |
 | DTOs       | `ApiRequest`, `ApiCalloutResult`                             | Outbound request and ordered raw outcome                  |
-| DTOs       | `ApiResponse`, `ApiError`                                    | Public JSON envelope and safe error contract              |
+| DTOs       | `ApiResponse`, `ApiError`                                    | Public response envelope and safe error contract              |
 | Exceptions | `ApiException`                                               | Explicit application status/code/public message           |
 | Factories  | `ApiResponseFactory`                                         | Fresh success/error envelopes independent of REST writing |
 | Builders   | `ApiRequestBuilder`                                          | Validate and build native requests before sending         |
-| Interfaces | `IApiTransport`                                              | Injectable native HTTP adapter                            |
+| Interfaces | `IApiTransport`, `IApiBodyCodec`                             | Injectable transport and text representation                            |
+| Strategies | `ApiJsonCodec` | Default JSON text encoding and decoding |
 | Services   | `ApiHttpClient`, `ApiHttpTransport`                          | Bulk orchestration and platform callouts                  |
 | Handlers   | `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | Inbound JSON, response serialization, safe error mapping  |
 
 `ApiRequest` defaults to GET, a 10,000 ms timeout, and empty header/query maps. It accepts HTTPS endpoints or `callout:Named_Credential/path`; prefer Named Credentials and External Credentials for authentication. Header and query values belong to trusted Apex configuration, not arbitrary public request input. An application accepting external destinations must apply its own destination allowlist.
 
-The builder supports GET, HEAD, POST, PUT, PATCH, DELETE, and OPTIONS. It rejects invalid endpoints, whitespace/fragments, URL user-info credentials, unsupported methods, GET/HEAD bodies, timeouts outside 1–120,000 ms, invalid/newline/duplicate headers, and platform-managed headers. Query values are URL encoded; names are sorted for deterministic construction. Supply Content-Type explicitly for POST/PUT/PATCH bodies; the toolkit does not assume all outbound bodies are JSON. Authentication remains with the Named Credential configuration or a developer-owned transport.
+The builder supports GET, HEAD, POST, PUT, PATCH, DELETE, and OPTIONS. It rejects invalid endpoints, whitespace/fragments, URL user-info credentials, unsupported methods, GET/HEAD bodies, timeouts outside 1–120,000 ms, invalid/newline/duplicate headers, and platform-managed headers. Query values are URL encoded; names are sorted for deterministic construction. Supply Content-Type explicitly for raw POST/PUT/PATCH bodies; codec payloads default to their codec’s Content-Type; the toolkit does not assume all outbound bodies are JSON. Authentication remains with the Named Credential configuration or a developer-owned transport.
 
 ## Outbound usage
 
@@ -109,6 +110,38 @@ These are alternative endpoint outcomes, not sequential writes to the same respo
 For envelope-only consumers, use `ApiResponseFactory.success(data, requestId)`, `failed(code, message, requestId)`, or `internalError(requestId)`. Each call returns a fresh envelope. Error factories require a nonblank code and message; they carry no success data. The exception handler uses the same factories so default error contracts stay consistent. The envelope does not contain HTTP status: status belongs to the writer/transport.
 
 `failed` rejects success statuses, unsupported Apex REST statuses, null errors and incomplete error contracts before changing the response. Public error messages are application-owned; pass unexpected exceptions to ApiGlobalExceptionHandler rather than forwarding raw diagnostic text. Existing `ApiWriter.success(target, statusCode, data, requestId)` and `write` APIs remain supported.
+
+## Extending body formats
+
+`IApiTransport` owns HTTP execution. `IApiBodyCodec` owns a UTF-8 text representation through `getContentType`, `supports`, `encode`, and `decode`. `ApiJsonCodec` is the only built-in codec. Existing raw request bodies and JSON helpers remain supported; no SOAP/XML implementation or global codec registry is installed.
+
+```apex
+ApiRequest request = new ApiRequest();
+request.endpoint = 'callout:Partner_API/v1/bulk';
+request.method = 'POST';
+request.codec = new ApiJsonCodec();
+request.payload = items;
+ApiCalloutResult result = new ApiHttpClient().send(request);
+List<MyDto> decoded = (List<MyDto>) result.readAs(List<MyDto>.class, request.codec);
+```
+
+To add another text representation later, implement `IApiBodyCodec` and pass the instance at the boundary:
+
+```apex
+Object input = ApiRequestReader.read(RestContext.request, codec);
+MyDto typed = (MyDto) ApiRequestReader.readAs(RestContext.request, MyDto.class, codec);
+ApiWriter.write(RestContext.response, 201,
+    ApiResponseFactory.success(results, requestId), codec);
+Object upstream = result.read(codec);
+```
+
+Here `codec` is an application-supplied implementation. The writer passes the complete `ApiResponse` envelope to `encode`; the application codec must represent that contract. Named writer helpers and `ApiGlobalExceptionHandler` continue to emit JSON. An endpoint selecting another representation must explicitly use `write(..., codec)` for its own error envelopes too. The toolkit does not automatically negotiate Accept headers or select a format from upstream Content-Type.
+
+Supply either `body` (raw text) or `codec` plus `payload`. A payload without a codec, a raw body combined with a codec, unsupported Content-Type, or a codec encoding failure rejects the entire outbound batch before any callout. Explicit compatible Content-Type headers are retained; otherwise the codec supplies its default. GET/HEAD cannot carry codec payloads. A codec may encode null payloads but must return non-null text.
+
+Implementations must be pure: no callouts, SOQL, DML, or payload mutation. Handle media types and parameters deliberately in `supports`; `decode` receives a null type for untyped parsing or the caller's explicit Apex type. Codec exceptions are sanitized at encoding/decoding boundaries. Generic inbound decoding reports `400 / INVALID_BODY`; upstream decoding reports `500 / INVALID_UPSTREAM_BODY`. Legacy JSON helpers retain `INVALID_JSON` and `INVALID_UPSTREAM_JSON`. Missing codecs are configuration errors. Response encoding completes before the target is mutated, and 204/304 skip encoding.
+
+This seam covers text serialization. Protocol behavior such as SOAP actions, operation envelopes, faults, authentication, or binary/multipart transfer requires an application adapter when implemented; a codec alone does not provide those features. A test-only sentinel codec proves substitution without adding another production format.
 
 ## Validation
 
