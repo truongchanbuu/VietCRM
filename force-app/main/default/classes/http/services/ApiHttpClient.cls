@@ -27,6 +27,55 @@ public with sharing class ApiHttpClient {
   }
 
   /**
+   * Sends a GET request through the same validated, budgeted client.
+   * @param endpoint HTTPS or Named Credential endpoint
+   * @return Raw HTTP outcome; decoding remains explicit
+   */
+  public ApiCalloutResult get(String endpoint) {
+    return sendRequest('GET', endpoint, null);
+  }
+
+  /**
+   * Sends a POST request through the same validated, budgeted client.
+   * @param endpoint HTTPS or Named Credential endpoint
+   * @param payload Application data serialized as JSON; null becomes JSON null
+   * @return Raw HTTP outcome; decoding remains explicit
+   */
+  public ApiCalloutResult post(String endpoint, Object payload) {
+    return sendRequest('POST', endpoint, payload);
+  }
+
+  /**
+   * Sends a PUT request through the same validated, budgeted client.
+   * @param endpoint HTTPS or Named Credential endpoint
+   * @param payload Application data serialized as JSON; null becomes JSON null
+   * @return Raw HTTP outcome; decoding remains explicit
+   */
+  public ApiCalloutResult put(String endpoint, Object payload) {
+    return sendRequest('PUT', endpoint, payload);
+  }
+
+  /**
+   * Sends a PATCH request through the same validated, budgeted client.
+   * @param endpoint HTTPS or Named Credential endpoint
+   * @param payload Application data serialized as JSON; null becomes JSON null
+   * @return Raw HTTP outcome; decoding remains explicit
+   */
+  public ApiCalloutResult patch(String endpoint, Object payload) {
+    return sendRequest('PATCH', endpoint, payload);
+  }
+
+  /**
+   * Sends a DELETE request through the same validated, budgeted client.
+   * @param endpoint HTTPS or Named Credential endpoint
+   * Apex reserves delete, so this shortcut uses deleteRequest.
+   * @return Raw HTTP outcome; decoding remains explicit
+   */
+  public ApiCalloutResult deleteRequest(String endpoint) {
+    return sendRequest('DELETE', endpoint, null);
+  }
+
+  /**
    * Single-request convenience API with identical bulk validation semantics.
    * @param request Developer-owned outbound request
    * @return Transport or HTTP outcome
@@ -70,6 +119,22 @@ public with sharing class ApiHttpClient {
     }
 
     return results;
+  }
+
+  private ApiCalloutResult sendRequest(
+    String method,
+    String endpoint,
+    Object payload
+  ) {
+    ApiRequest request = new ApiRequest();
+    request.endpoint = endpoint;
+    request.method = method;
+    if (method == 'POST' || method == 'PUT' || method == 'PATCH') {
+      request.formatter = new ApiJsonFormatter();
+      request.payload = payload;
+    }
+
+    return send(request);
   }
 
   private ApiCalloutResult sendPrepared(HttpRequest request, String requestId) {
