@@ -5,12 +5,15 @@ public virtual with sharing class DbPageStrategyFactory {
     if (strategy == DbPageRequest.OFFSET) {
       return new DbOffsetStrategy();
     }
+
     if (strategy == DbPageRequest.KEYSET) {
       return new DbKeysetStrategy();
     }
+
     if (strategy == DbPageRequest.PAGE_CURSOR) {
       return new DbPageCursorStrategy();
     }
+
     throw new DbQueryException(
       'Unsupported page strategy: ' +
         strategy +

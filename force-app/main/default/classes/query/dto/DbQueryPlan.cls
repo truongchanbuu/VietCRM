@@ -1,4 +1,5 @@
 public with sharing class DbQueryPlan {
+  public String objectName;
   public String selectFrom;
   public List<String> whereParts;
   public Map<String, Object> binds;

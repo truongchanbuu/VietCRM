@@ -10,7 +10,7 @@ Modules must not import business examples or archive classes. Explicitly declare
 
 The compiler validates field paths and operators and creates bind values. Services orchestrate execution; strategies implement paging. QueryLocator is separate because Batch Apex owns its chunk lifecycle.
 
-Built-in strategies are OFFSET, KEYSET (Id ASC/DESC), and native PAGE_CURSOR. A caller can subclass `DbPageStrategyFactory`, override `resolve`, and call:
+Built-in strategies are OFFSET, KEYSET (one sortable/filterable field plus Id, ASC/DESC), and native PAGE_CURSOR. A caller can subclass `DbPageStrategyFactory`, override `resolve`, and call:
 
 ```apex
 DbQueryResult result = DbQueryService.execute(request, 100, new ApplicationPageStrategyFactory());
