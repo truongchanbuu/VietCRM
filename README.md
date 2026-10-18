@@ -1,6 +1,6 @@
 # salesforce-develop-kit
 
-A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. This branch contains only the database query and pagination feature. Logging, feature flags, and historical CRM code are preserved on `feature/developer-kit-foundation`.
+A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. The deployable core contains independent database query/pagination and HTTP integration modules. Logging, feature flags, and historical CRM code are preserved on `feature/developer-kit-foundation`.
 
 ## Structure
 
@@ -8,13 +8,14 @@ A reusable Salesforce developer kit for common development tasks, with extensibl
 force-app/main/default/
   classes/
     query/{services,builders,dto,exceptions,factories,interfaces,selectors,strategies,tests}/
+    http/{services,builders,dto,exceptions,interfaces,handlers,tests}/
 examples/apex/            # Opt-in usage examples
 .agents/skills/           # Pinned Salesforce-maintained development skills
 .codex/config.toml        # Optional local DX MCP connection for dev
 scripts/quality/         # Module and deployment validation
 ```
 
-Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. The query module has no dependencies on other application modules.
+Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. Both modules have no dependencies on other application modules.
 
 ## Setup and checks
 
@@ -40,11 +41,12 @@ RunLocalTests also includes existing unmanaged tests in the target org. Use a cl
 
 ## Modules
 
-| Module | Entry points                                          | Extension points                                         |
-| ------ | ----------------------------------------------------- | -------------------------------------------------------- |
-| Query  | `DbQueryService.execute`, `queryLocator`, `fetchPage` | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory` |
+| Module | Entry points                                                                          | Extension points                                         |
+| ------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Query  | `DbQueryService.execute`, `queryLocator`, `fetchPage`                                 | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory` |
+| HTTP   | `ApiHttpClient.sendAll`, `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | Constructor-injected `IApiTransport`                     |
 
-See [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
+See [HTTP integration](docs/http-integration.md), [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
 
 ## Quality and security
 
@@ -60,4 +62,4 @@ The query source was synchronized from `dev` on 2026-10-14. The broader source r
 
 Develop each feature on its own `feature/<module>-<purpose>` branch, created from current `main`. Keep implementation, metadata, tests, examples, and documentation together in that branch. Open a pull request to `main` only when the feature is complete and validated; `main` contains the final integrated version. Use `fix/<module>-<issue>` for fixes.
 
-The broader module extraction is preserved on `feature/developer-kit-foundation`; this feature is maintained on `feature/db-query-pagination`. Future features follow the independent branch workflow in [CONTRIBUTING.md](CONTRIBUTING.md). The local workspace directory and GitHub repository URL are separate from the project metadata name.
+The broader module extraction is preserved on `feature/developer-kit-foundation`; new HTTP development is maintained on `feature/http`. Future features follow the independent branch workflow in [CONTRIBUTING.md](CONTRIBUTING.md). The local workspace directory and GitHub repository URL are separate from the project metadata name.

@@ -2,7 +2,7 @@
   "name": "salesforce-develop-kit",
   "private": true,
   "version": "1.0.0",
-  "description": "Reusable Salesforce database query and pagination module",
+  "description": "Reusable Salesforce query and HTTP integration modules",
   "scripts": {
     "lint": "npm run check:modules",
     "test": "npm run check:modules && npm run format:core:check",

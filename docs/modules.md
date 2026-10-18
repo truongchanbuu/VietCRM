@@ -20,6 +20,10 @@ Call `super.resolve(name)` for built-in strategies. The factory is per call, not
 
 Tests are grouped by strategy, typed filters, schema access, security, extensions, and traversal beyond 2,000 offset rows. `QueryTestDataFactory` and `QueryTestSupport` have no dependency on the historical CRM app. The access-denial fixture uses the standard `Minimum Access - Salesforce` profile.
 
+## HTTP
+
+The HTTP module is independent of query and any business metadata. DTOs separate outbound raw results from public REST envelopes. Builders validate full batches before callout side effects; services orchestrate ordered partial outcomes through an injected transport. REST readers/writers and exception mapping operate on explicit request/response objects. No SOQL/DML occurs in the module. Callout batches respect remaining transaction callout slots; application-owned scheduling, persistence, idempotency and retry policies remain outside the toolkit. See [HTTP contracts](http-integration.md).
+
 ## Validation policy
 
 Each feature needs behavior assertions, error cases, bulk tests where it processes collections, and tests for its real security boundary. Retain at least Salesforce's per-class 75% coverage requirement, targeting 90%+ on new logic. Coverage alone is not correctness: deep paging must verify exact population, no duplicate IDs, and termination.
