@@ -7,23 +7,18 @@ public with sharing class ApiGlobalExceptionHandler {
    * @return Safe error envelope
    */
   public static ApiResponse toResponse(Exception failure, String requestId) {
-    ApiResponse payload = new ApiResponse();
-    payload.success = false;
-    payload.requestId = requestId;
-    payload.error = new ApiError(
-      'INTERNAL_ERROR',
-      'An unexpected error occurred.'
-    );
-
-    if (!(failure instanceof ApiException))
-      return payload;
-
-    ApiException known = (ApiException) failure;
-    if (isPublicError(known)) {
-      payload.error = new ApiError(known.code, known.getMessage());
+    if (failure instanceof ApiException) {
+      ApiException known = (ApiException) failure;
+      if (isPublicError(known)) {
+        return ApiResponseFactory.failed(
+          known.code,
+          known.getMessage(),
+          requestId
+        );
+      }
     }
 
-    return payload;
+    return ApiResponseFactory.internalError(requestId);
   }
 
   /**

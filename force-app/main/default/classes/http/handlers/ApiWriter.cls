@@ -87,12 +87,292 @@ public with sharing class ApiWriter {
     Object data,
     String requestId
   ) {
-    ApiResponse payload = new ApiResponse();
-    payload.success = true;
-    payload.data = data;
-    payload.requestId = requestId;
+    write(target, statusCode, ApiResponseFactory.success(data, requestId));
+  }
 
-    write(target, statusCode, payload);
+  /**
+   * Writes 200 OK without a correlation identifier.
+   * @param target Explicit RestResponse
+   * @param data JSON-serializable application result
+   */
+  public static void success(RestResponse target, Object data) {
+    success(target, data, null);
+  }
+
+  /**
+   * Writes 200 OK with the common success envelope.
+   * @param target Explicit RestResponse
+   * @param data JSON-serializable application result
+   * @param requestId Optional correlation identifier
+   */
+  public static void success(
+    RestResponse target,
+    Object data,
+    String requestId
+  ) {
+    success(target, 200, data, requestId);
+  }
+
+  /**
+   * Writes 201 Created without a correlation identifier.
+   * @param target Explicit RestResponse
+   * @param data JSON-serializable application result
+   */
+  public static void created(RestResponse target, Object data) {
+    created(target, data, null);
+  }
+
+  /**
+   * Writes 201 Created with the common success envelope.
+   * @param target Explicit RestResponse
+   * @param data JSON-serializable application result
+   * @param requestId Optional correlation identifier
+   */
+  public static void created(
+    RestResponse target,
+    Object data,
+    String requestId
+  ) {
+    success(target, 201, data, requestId);
+  }
+
+  /**
+   * Writes 202 Accepted without a correlation identifier.
+   * @param target Explicit RestResponse
+   * @param data JSON-serializable application result
+   */
+  public static void accepted(RestResponse target, Object data) {
+    accepted(target, data, null);
+  }
+
+  /**
+   * Writes 202 Accepted with the common success envelope.
+   * @param target Explicit RestResponse
+   * @param data JSON-serializable application result
+   * @param requestId Optional correlation identifier
+   */
+  public static void accepted(
+    RestResponse target,
+    Object data,
+    String requestId
+  ) {
+    success(target, 202, data, requestId);
+  }
+
+  /**
+   * Clears any previous body when the operation has no representation.
+   * @param target Explicit RestResponse
+   */
+  public static void noContent(RestResponse target) {
+    success(target, 204, null, null);
+  }
+
+  /**
+   * Writes a custom public error without a correlation identifier.
+   * @param target Explicit RestResponse
+   * @param statusCode Supported Apex REST error status
+   * @param error Explicitly safe public error
+   */
+  public static void failed(
+    RestResponse target,
+    Integer statusCode,
+    ApiError error
+  ) {
+    failed(target, statusCode, error, null);
+  }
+
+  /**
+   * Restricts named failure responses to supported error statuses and complete errors.
+   * @param target Explicit RestResponse
+   * @param statusCode Supported Apex REST error status
+   * @param error Explicitly safe public error
+   * @param requestId Optional correlation identifier
+   * @throws ApiException for invalid error status or contract
+   */
+  public static void failed(
+    RestResponse target,
+    Integer statusCode,
+    ApiError error,
+    String requestId
+  ) {
+    if (
+      statusCode == null ||
+      statusCode < 400 ||
+      !supports(statusCode) ||
+      error == null
+    ) {
+      throw ApiException.create(
+        500,
+        'INVALID_RESPONSE',
+        'A supported error status and public error are required.'
+      );
+    }
+
+    write(
+      target,
+      statusCode,
+      ApiResponseFactory.failed(error.code, error.message, requestId)
+    );
+  }
+
+  /**
+   * Writes 400 with a caller-chosen public message.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   */
+  public static void badRequest(RestResponse target, String message) {
+    badRequest(target, message, null);
+  }
+
+  /**
+   * Writes 400 BAD_REQUEST and preserves correlation for the client.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   * @param requestId Optional correlation identifier
+   */
+  public static void badRequest(
+    RestResponse target,
+    String message,
+    String requestId
+  ) {
+    failed(target, 400, new ApiError('BAD_REQUEST', message), requestId);
+  }
+
+  /**
+   * Writes 401 with a caller-chosen public message.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   */
+  public static void unauthorized(RestResponse target, String message) {
+    unauthorized(target, message, null);
+  }
+
+  /**
+   * Writes 401 UNAUTHORIZED and preserves correlation for the client.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   * @param requestId Optional correlation identifier
+   */
+  public static void unauthorized(
+    RestResponse target,
+    String message,
+    String requestId
+  ) {
+    failed(target, 401, new ApiError('UNAUTHORIZED', message), requestId);
+  }
+
+  /**
+   * Writes 403 with a caller-chosen public message.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   */
+  public static void forbidden(RestResponse target, String message) {
+    forbidden(target, message, null);
+  }
+
+  /**
+   * Writes 403 FORBIDDEN and preserves correlation for the client.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   * @param requestId Optional correlation identifier
+   */
+  public static void forbidden(
+    RestResponse target,
+    String message,
+    String requestId
+  ) {
+    failed(target, 403, new ApiError('FORBIDDEN', message), requestId);
+  }
+
+  /**
+   * Writes 404 with a caller-chosen public message.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   */
+  public static void notFound(RestResponse target, String message) {
+    notFound(target, message, null);
+  }
+
+  /**
+   * Writes 404 NOT_FOUND and preserves correlation for the client.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   * @param requestId Optional correlation identifier
+   */
+  public static void notFound(
+    RestResponse target,
+    String message,
+    String requestId
+  ) {
+    failed(target, 404, new ApiError('NOT_FOUND', message), requestId);
+  }
+
+  /**
+   * Writes 409 with a caller-chosen public message.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   */
+  public static void conflict(RestResponse target, String message) {
+    conflict(target, message, null);
+  }
+
+  /**
+   * Writes 409 CONFLICT and preserves correlation for the client.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   * @param requestId Optional correlation identifier
+   */
+  public static void conflict(
+    RestResponse target,
+    String message,
+    String requestId
+  ) {
+    failed(target, 409, new ApiError('CONFLICT', message), requestId);
+  }
+
+  /**
+   * Writes 503 with a caller-chosen public message.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   */
+  public static void serviceUnavailable(RestResponse target, String message) {
+    serviceUnavailable(target, message, null);
+  }
+
+  /**
+   * Writes 503 SERVICE_UNAVAILABLE and preserves correlation for the client.
+   * @param target Explicit RestResponse
+   * @param message Safe public message
+   * @param requestId Optional correlation identifier
+   */
+  public static void serviceUnavailable(
+    RestResponse target,
+    String message,
+    String requestId
+  ) {
+    failed(
+      target,
+      503,
+      new ApiError('SERVICE_UNAVAILABLE', message),
+      requestId
+    );
+  }
+
+  /**
+   * Writes a generic 500 without exposing an exception message.
+   * @param target Explicit RestResponse
+   */
+  public static void internalError(RestResponse target) {
+    internalError(target, null);
+  }
+
+  /**
+   * Uses the same sanitized fallback as the exception handler.
+   * @param target Explicit RestResponse
+   * @param requestId Optional correlation identifier
+   */
+  public static void internalError(RestResponse target, String requestId) {
+    write(target, 500, ApiResponseFactory.internalError(requestId));
   }
 
   /**
