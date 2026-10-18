@@ -8,7 +8,7 @@ A reusable Salesforce developer kit for common development tasks, with extensibl
 force-app/main/default/
   classes/
     query/{services,builders,dto,exceptions,factories,interfaces,selectors,strategies,tests}/
-    http/{services,builders,dto,exceptions,interfaces,handlers,tests}/
+    http/{services,builders,dto,exceptions,factories,interfaces,handlers,tests}/
 examples/apex/            # Opt-in usage examples
 .agents/skills/           # Pinned Salesforce-maintained development skills
 .codex/config.toml        # Optional local DX MCP connection for dev

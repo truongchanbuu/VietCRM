@@ -2,24 +2,25 @@
 
 Validated on 2026-10-18, branch `feature/http`, against development org alias `dev`.
 
-- `npm test`: passed, two independent modules and 43 Apex classes/interfaces; formatting passed.
-- `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 108 moderate, 185 low. HTTP-only: 0 critical/high, 48 moderate, 62 low. No severity overrides or suppressions were added.
-- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k151ZCAQ`. All 43 local components compiled; 102 tests passed (54 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
-- HTTP aggregate executable-line coverage: 302/303 (99.67%). Statement coverage is not branch coverage and does not prove every integration environment.
+- `npm test`: passed, two independent modules and 46 Apex classes/interfaces; formatting passed.
+- `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 137 moderate, 223 low. HTTP-only: 0 critical/high, 77 moderate, 100 low. No severity overrides or suppressions were added.
+- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k16wvCAA`. All 46 local components compiled; 140 tests passed (92 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
+- HTTP aggregate executable-line coverage: 375/376 (99.73%). Statement coverage is not branch coverage and does not prove every integration environment.
 
 | HTTP class                | Covered lines | Coverage            |
 | ------------------------- | ------------- | ------------------- |
 | ApiCalloutResult          | 16/16         | 100.00%             |
 | ApiError                  | 3/3           | 100.00%             |
 | ApiException              | 5/5           | 100.00%             |
-| ApiGlobalExceptionHandler | 25/25         | 100.00%             |
+| ApiGlobalExceptionHandler | 21/21         | 100.00%             |
 | ApiHttpClient             | 50/50         | 100.00%             |
 | ApiHttpTransport          | 2/2           | 100.00%             |
 | ApiRequest                | 4/4           | 100.00%             |
 | ApiRequestBuilder         | 85/86         | 98.84%              |
 | ApiRequestReader          | 54/54         | 100.00%             |
 | ApiResponse               | 0/0           | No executable lines |
-| ApiWriter                 | 58/58         | 100.00%             |
+| ApiResponseFactory        | 19/19         | 100.00%             |
+| ApiWriter                 | 116/116       | 100.00%             |
 
 ## Exercised behavior
 
@@ -44,4 +45,10 @@ Callout count is preflighted. Cumulative callout time, CPU, heap, response/reque
 
 HTTP source and tests now follow AGENTS.md Engineering & Coding Standards: one blank line between logical phases and members, formatter-compatible short guards, explicit branches instead of nested ternaries, flatter exception flow, and descriptive request fixture names. Public APIs, payloads, test cases and assertion order were retained. This pass introduces no new abstractions or formatter configuration.
 
-PMD's IfStmtsMustUseBraces and IfElseStmtsMustUseBraces recommendations flag the eight short guards allowed by the repository standards. These remain visible in the moderate findings; no rule was disabled or severity changed. The critical/high gate and all 102 regression tests passed.
+PMD's IfStmtsMustUseBraces and IfElseStmtsMustUseBraces recommendations flag short guards allowed by the repository standards. These remain visible in the moderate findings; no rule was disabled or severity changed. The critical/high gate and all regression tests passed.
+
+## Common response helpers
+
+ApiResponseFactory and named ApiWriter helpers are covered by 38 new tests: every named success/error status, correlation and no-correlation overloads, custom failures, invalid statuses/contracts rejected before response mutation, bodyless noContent, fresh error envelopes, and 251-item collection preservation. Existing handler tests still verify safe unexpected-error handling and compatibility with the original writer API. ApiResponseFactory and all named writer helpers have full executable-line coverage in this run.
+
+The CLI lost its polling connection near the end of validation. Reading the same job with `sf project deploy report` confirmed Succeeded, 140 tests and no failures or coverage warnings; no duplicate deployment was submitted. PMD also reports the larger public method count for ApiWriter, reflecting the explicit status helpers and their no-correlation overloads. No rule was suppressed or disabled.

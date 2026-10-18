@@ -4,15 +4,16 @@ The independent `http` module provides outbound HTTP orchestration and explicit 
 
 ## Layout and contracts
 
-| Role       | Classes                                                      | Purpose                                                  |
-| ---------- | ------------------------------------------------------------ | -------------------------------------------------------- |
-| DTOs       | `ApiRequest`, `ApiCalloutResult`                             | Outbound request and ordered raw outcome                 |
-| DTOs       | `ApiResponse`, `ApiError`                                    | Public JSON envelope and safe error contract             |
-| Exceptions | `ApiException`                                               | Explicit application status/code/public message          |
-| Builders   | `ApiRequestBuilder`                                          | Validate and build native requests before sending        |
-| Interfaces | `IApiTransport`                                              | Injectable native HTTP adapter                           |
-| Services   | `ApiHttpClient`, `ApiHttpTransport`                          | Bulk orchestration and platform callouts                 |
-| Handlers   | `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | Inbound JSON, response serialization, safe error mapping |
+| Role       | Classes                                                      | Purpose                                                   |
+| ---------- | ------------------------------------------------------------ | --------------------------------------------------------- |
+| DTOs       | `ApiRequest`, `ApiCalloutResult`                             | Outbound request and ordered raw outcome                  |
+| DTOs       | `ApiResponse`, `ApiError`                                    | Public JSON envelope and safe error contract              |
+| Exceptions | `ApiException`                                               | Explicit application status/code/public message           |
+| Factories  | `ApiResponseFactory`                                         | Fresh success/error envelopes independent of REST writing |
+| Builders   | `ApiRequestBuilder`                                          | Validate and build native requests before sending         |
+| Interfaces | `IApiTransport`                                              | Injectable native HTTP adapter                            |
+| Services   | `ApiHttpClient`, `ApiHttpTransport`                          | Bulk orchestration and platform callouts                  |
+| Handlers   | `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | Inbound JSON, response serialization, safe error mapping  |
 
 `ApiRequest` defaults to GET, a 10,000 ms timeout, and empty header/query maps. It accepts HTTPS endpoints or `callout:Named_Credential/path`; prefer Named Credentials and External Credentials for authentication. Header and query values belong to trusted Apex configuration, not arbitrary public request input. An application accepting external destinations must apply its own destination allowlist.
 
@@ -59,7 +60,7 @@ global static void doPost() {
     try {
         List<Object> input = (List<Object>) ApiRequestReader.readJson(RestContext.request);
         // Validate authorization/schema and process the collection in a bulk service.
-        ApiWriter.success(RestContext.response, 200, results, requestId);
+        ApiWriter.success(RestContext.response, results, requestId);
     } catch (Exception failure) {
         ApiGlobalExceptionHandler.handle(RestContext.response, failure, requestId);
     }
@@ -73,6 +74,41 @@ Apex has no installable global exception interceptor. Each endpoint must call th
 `ApiWriter.success` writes `{success,data,error,requestId}`, with JSON escaping and no-store caching. It serializes the whole collection once, uses Apex REST's supported status set, and leaves 204/304 responses bodyless. Custom headers such as Location can be set directly on the response. Unsupported statuses and contradictory envelopes are rejected before mutating the target. Apex REST does not support every standard HTTP status: upstream 429 is retained by the outbound client, but a typed inbound error with an unsupported status falls back to a safe 500.
 
 `ApiException.create(409, 'CONFLICT', 'Version conflict.')` marks an explicitly safe application error. Only valid typed errors expose their chosen code/message. Other exceptions, null exceptions, and malformed typed errors become 500 / INTERNAL_ERROR, with no stack trace or raw exception message. There is no automatic message redaction for intentionally public application errors; choose their text deliberately.
+
+## Common response helpers
+
+Named writer methods bind the status and standard error code so endpoint code does not repeat status literals or envelope setup. Supply `requestId` as the final optional overload; omit it when correlation is not needed. All calls use the same validated writer and preserve its JSON headers, no-store policy and bodyless-response rules.
+
+| Helper                                             | Status            | Error code                    |
+| -------------------------------------------------- | ----------------- | ----------------------------- |
+| `success(target, data[, requestId])`               | 200               | —                             |
+| `created(target, data[, requestId])`               | 201               | —                             |
+| `accepted(target, data[, requestId])`              | 202               | —                             |
+| `noContent(target)`                                | 204               | —                             |
+| `badRequest(target, message[, requestId])`         | 400               | BAD_REQUEST                   |
+| `unauthorized(target, message[, requestId])`       | 401               | UNAUTHORIZED                  |
+| `forbidden(target, message[, requestId])`          | 403               | FORBIDDEN                     |
+| `notFound(target, message[, requestId])`           | 404               | NOT_FOUND                     |
+| `conflict(target, message[, requestId])`           | 409               | CONFLICT                      |
+| `internalError(target[, requestId])`               | 500               | INTERNAL_ERROR                |
+| `serviceUnavailable(target, message[, requestId])` | 503               | SERVICE_UNAVAILABLE           |
+| `failed(target, status, error[, requestId])`       | Supported 4xx/5xx | Caller-supplied ApiError code |
+
+Square brackets in the table mean an overload, not Apex optional-argument syntax.
+
+```apex
+ApiWriter.created(RestContext.response, createdRecords, requestId);
+ApiWriter.notFound(RestContext.response, 'The requested resource was not found.');
+ApiWriter.failed(RestContext.response, 412,
+    new ApiError('STALE_VERSION', 'Refresh the resource.'), requestId);
+ApiWriter.noContent(RestContext.response);
+```
+
+These are alternative endpoint outcomes, not sequential writes to the same response. Set any endpoint-specific Location or authentication headers on the target explicitly. `accepted` writes 202; application code owns actually accepting or queuing work.
+
+For envelope-only consumers, use `ApiResponseFactory.success(data, requestId)`, `failed(code, message, requestId)`, or `internalError(requestId)`. Each call returns a fresh envelope. Error factories require a nonblank code and message; they carry no success data. The exception handler uses the same factories so default error contracts stay consistent. The envelope does not contain HTTP status: status belongs to the writer/transport.
+
+`failed` rejects success statuses, unsupported Apex REST statuses, null errors and incomplete error contracts before changing the response. Public error messages are application-owned; pass unexpected exceptions to ApiGlobalExceptionHandler rather than forwarding raw diagnostic text. Existing `ApiWriter.success(target, statusCode, data, requestId)` and `write` APIs remain supported.
 
 ## Validation
 
