@@ -11,30 +11,41 @@ The independent `http` module provides outbound HTTP orchestration and explicit 
 | Exceptions | `ApiException`                                               | Explicit application status/code/public message           |
 | Factories  | `ApiResponseFactory`                                         | Fresh success/error envelopes independent of REST writing |
 | Builders   | `ApiRequestBuilder`                                          | Validate and build native requests before sending         |
-| Interfaces | `IApiTransport`, `IApiBodyCodec`                             | Injectable transport and text representation                            |
-| Strategies | `ApiJsonCodec` | Default JSON text encoding and decoding |
+| Interfaces | `IApiTransport`, `IApiBodyFormatter`                             | Injectable transport and text representation                            |
+| Strategies | `ApiJsonFormatter` | Default JSON text encoding and decoding |
 | Services   | `ApiHttpClient`, `ApiHttpTransport`                          | Bulk orchestration and platform callouts                  |
 | Handlers   | `ApiRequestReader`, `ApiWriter`, `ApiGlobalExceptionHandler` | Inbound JSON, response serialization, safe error mapping  |
 
 `ApiRequest` defaults to GET, a 10,000 ms timeout, and empty header/query maps. It accepts HTTPS endpoints or `callout:Named_Credential/path`; prefer Named Credentials and External Credentials for authentication. Header and query values belong to trusted Apex configuration, not arbitrary public request input. An application accepting external destinations must apply its own destination allowlist.
 
-The builder supports GET, HEAD, POST, PUT, PATCH, DELETE, and OPTIONS. It rejects invalid endpoints, whitespace/fragments, URL user-info credentials, unsupported methods, GET/HEAD bodies, timeouts outside 1–120,000 ms, invalid/newline/duplicate headers, and platform-managed headers. Query values are URL encoded; names are sorted for deterministic construction. Supply Content-Type explicitly for raw POST/PUT/PATCH bodies; codec payloads default to their codec’s Content-Type; the toolkit does not assume all outbound bodies are JSON. Authentication remains with the Named Credential configuration or a developer-owned transport.
+The builder supports GET, HEAD, POST, PUT, PATCH, DELETE, and OPTIONS. It rejects invalid endpoints, whitespace/fragments, URL user-info credentials, unsupported methods, GET/HEAD bodies, timeouts outside 1–120,000 ms, invalid/newline/duplicate headers, and platform-managed headers. Query values are URL encoded; names are sorted for deterministic construction. Supply Content-Type explicitly for raw POST/PUT/PATCH bodies; formatter payloads default to their formatter’s Content-Type; the toolkit does not assume all outbound bodies are JSON. Authentication remains with the Named Credential configuration or a developer-owned transport.
 
 ## Outbound usage
 
 ```apex
-ApiRequest request = new ApiRequest();
-request.endpoint = 'callout:Partner_API/v1/bulk';
-request.method = 'POST';
-request.headers.put('Content-Type', 'application/json');
-request.body = JSON.serialize(items);
-request.requestId = 'application-correlation-id';
-ApiCalloutResult outcome = new ApiHttpClient().send(request);
+ApiHttpClient client = new ApiHttpClient();
+ApiCalloutResult outcome = client.post('callout:Partner_API/v1/bulk', items);
 if (outcome.isSuccess()) {
     Object acknowledgment = outcome.readJson();
 } else {
     // Apply application-specific persistence, monitoring or retry policy.
 }
+```
+
+`get(endpoint)`, `post(endpoint, payload)`, `put(endpoint, payload)`, `patch(endpoint, payload)`, and `deleteRequest(endpoint)` cover common calls. POST/PUT/PATCH use `ApiJsonFormatter`; null payloads encode as JSON null. String payloads encode as JSON strings; pass objects directly instead of pre-serializing. GET/DELETE have no body. Apex reserves `delete`, so the DELETE helper is named `deleteRequest`. These helpers delegate to the same validated `send`/`sendAll` path; no manual request builder call is required.
+
+For custom headers, query parameters, timeout, correlation, raw bodies, or a selected formatter, use the full configuration path:
+
+```apex
+ApiRequest request = new ApiRequest();
+request.endpoint = 'callout:Partner_API/v1/bulk';
+request.method = 'POST';
+request.requestId = 'application-correlation-id';
+request.headers.put('X-Request-Id', request.requestId);
+request.timeoutMillis = 5000;
+request.formatter = new ApiJsonFormatter();
+request.payload = items;
+ApiCalloutResult outcome = new ApiHttpClient().send(request);
 ```
 
 The Named Credential and its access assignments must already exist in the target org. No credential material is stored in source. `requestId` is copied into the result; add an outbound correlation header explicitly if the partner requires one.
@@ -113,35 +124,37 @@ For envelope-only consumers, use `ApiResponseFactory.success(data, requestId)`, 
 
 ## Extending body formats
 
-`IApiTransport` owns HTTP execution. `IApiBodyCodec` owns a UTF-8 text representation through `getContentType`, `supports`, `encode`, and `decode`. `ApiJsonCodec` is the only built-in codec. Existing raw request bodies and JSON helpers remain supported; no SOAP/XML implementation or global codec registry is installed.
+`IApiTransport` owns HTTP execution. `IApiBodyFormatter` owns a UTF-8 text representation through `getContentType`, `supports`, `encode`, and `decode`. `ApiJsonFormatter` is the only built-in formatter. Existing raw request bodies and JSON helpers remain supported; no SOAP/XML implementation or global formatter registry is installed.
 
 ```apex
 ApiRequest request = new ApiRequest();
 request.endpoint = 'callout:Partner_API/v1/bulk';
 request.method = 'POST';
-request.codec = new ApiJsonCodec();
+request.formatter = new ApiJsonFormatter();
 request.payload = items;
 ApiCalloutResult result = new ApiHttpClient().send(request);
-List<MyDto> decoded = (List<MyDto>) result.readAs(List<MyDto>.class, request.codec);
+List<MyDto> decoded = (List<MyDto>) result.readAs(List<MyDto>.class, request.formatter);
 ```
 
-To add another text representation later, implement `IApiBodyCodec` and pass the instance at the boundary:
+To add another text representation later, implement `IApiBodyFormatter` and pass the instance at the boundary:
 
 ```apex
-Object input = ApiRequestReader.read(RestContext.request, codec);
-MyDto typed = (MyDto) ApiRequestReader.readAs(RestContext.request, MyDto.class, codec);
+Object input = ApiRequestReader.read(RestContext.request, formatter);
+MyDto typed = (MyDto) ApiRequestReader.readAs(RestContext.request, MyDto.class, formatter);
 ApiWriter.write(RestContext.response, 201,
-    ApiResponseFactory.success(results, requestId), codec);
-Object upstream = result.read(codec);
+    ApiResponseFactory.success(results, requestId), formatter);
+Object upstream = result.read(formatter);
 ```
 
-Here `codec` is an application-supplied implementation. The writer passes the complete `ApiResponse` envelope to `encode`; the application codec must represent that contract. Named writer helpers and `ApiGlobalExceptionHandler` continue to emit JSON. An endpoint selecting another representation must explicitly use `write(..., codec)` for its own error envelopes too. The toolkit does not automatically negotiate Accept headers or select a format from upstream Content-Type.
+Here `formatter` is an application-supplied implementation. The writer passes the complete `ApiResponse` envelope to `encode`; the application formatter must represent that contract. Named writer helpers and `ApiGlobalExceptionHandler` continue to emit JSON. An endpoint selecting another representation must explicitly use `write(..., formatter)` for its own error envelopes too. The toolkit does not automatically negotiate Accept headers or select a format from upstream Content-Type.
 
-Supply either `body` (raw text) or `codec` plus `payload`. A payload without a codec, a raw body combined with a codec, unsupported Content-Type, or a codec encoding failure rejects the entire outbound batch before any callout. Explicit compatible Content-Type headers are retained; otherwise the codec supplies its default. GET/HEAD cannot carry codec payloads. A codec may encode null payloads but must return non-null text.
+Supply either `body` (raw text) or `formatter` plus `payload`. A payload without a formatter, a raw body combined with a formatter, unsupported Content-Type, or a formatter encoding failure rejects the entire outbound batch before any callout. Explicit compatible Content-Type headers are retained; otherwise the formatter supplies its default. GET/HEAD cannot carry formatter payloads. A formatter may encode null payloads but must return non-null text.
 
-Implementations must be pure: no callouts, SOQL, DML, or payload mutation. Handle media types and parameters deliberately in `supports`; `decode` receives a null type for untyped parsing or the caller's explicit Apex type. Codec exceptions are sanitized at encoding/decoding boundaries. Generic inbound decoding reports `400 / INVALID_BODY`; upstream decoding reports `500 / INVALID_UPSTREAM_BODY`. Legacy JSON helpers retain `INVALID_JSON` and `INVALID_UPSTREAM_JSON`. Missing codecs are configuration errors. Response encoding completes before the target is mutated, and 204/304 skip encoding.
+Implementations must be pure: no callouts, SOQL, DML, or payload mutation. Handle media types and parameters deliberately in `supports`; `decode` receives a null type for untyped parsing or the caller's explicit Apex type. Formatter exceptions are sanitized at encoding/decoding boundaries. Generic inbound decoding reports `400 / INVALID_BODY`; upstream decoding reports `500 / INVALID_UPSTREAM_BODY`. Legacy JSON helpers retain `INVALID_JSON` and `INVALID_UPSTREAM_JSON`. Missing formatters are configuration errors (`INVALID_FORMATTER`). Response encoding completes before the target is mutated, and 204/304 skip encoding.
 
-This seam covers text serialization. Protocol behavior such as SOAP actions, operation envelopes, faults, authentication, or binary/multipart transfer requires an application adapter when implemented; a codec alone does not provide those features. A test-only sentinel codec proves substitution without adding another production format.
+This seam covers text serialization. Protocol behavior such as SOAP actions, operation envelopes, faults, authentication, or binary/multipart transfer requires an application adapter when implemented; a formatter alone does not provide those features. A test-only sentinel formatter proves substitution without adding another production format.
+
+See the [HTTP examples guide](../examples/http/README.md) for runnable scripts and examples of every public feature.
 
 ## Validation
 

@@ -2,10 +2,10 @@
 
 Validated on 2026-10-18, branch `feature/http`, against development org alias `dev`.
 
-- `npm test`: passed, two independent modules and 49 Apex classes/interfaces; formatting passed.
-- `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 157 moderate, 239 low. HTTP-only: 0 critical/high, 97 moderate, 116 low. No severity overrides or suppressions were added.
-- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k1Ki9CAE`. All 49 local classes/interfaces compiled; 149 tests passed (101 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
-- HTTP aggregate executable-line coverage: 487/488 (99.80%). Statement coverage is not branch coverage and does not prove every integration environment.
+- `npm test`: passed, two independent modules and 50 Apex classes/interfaces; formatting passed.
+- `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 158 moderate, 246 low. HTTP-only: 0 critical/high, 98 moderate, 123 low. No severity overrides or suppressions were added.
+- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k1MvFCAU`. All 50 local classes/interfaces compiled; 155 tests passed (107 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
+- HTTP aggregate executable-line coverage: 505/506 (99.80%). Statement coverage is not branch coverage and does not prove every integration environment.
 
 | HTTP class | Covered lines | Coverage |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Validated on 2026-10-18, branch `feature/http`, against development org alias `d
 | ApiError | 3/3 | 100.00% |
 | ApiException | 5/5 | 100.00% |
 | ApiGlobalExceptionHandler | 21/21 | 100.00% |
-| ApiHttpClient | 50/50 | 100.00% |
+| ApiHttpClient | 68/68 | 100.00% |
 | ApiHttpTransport | 2/2 | 100.00% |
 | ApiJsonFormatter | 14/14 | 100.00% |
 | ApiRequest | 4/4 | 100.00% |
@@ -24,6 +24,8 @@ Validated on 2026-10-18, branch `feature/http`, against development org alias `d
 | ApiWriter | 140/140 | 100.00% |
 
 ## Exercised behavior
+
+- Common GET/POST/PUT/PATCH/DELETE shortcuts without a manually constructed request, injected and native transports, JSON null payloads, 251-item payloads, HTTP/callout failures, invalid endpoints, and exhausted callout budget.
 
 - Custom test-only formatter through outbound requests/results and REST readers/writers, typed decoding, encoding/decoding failure sanitization, unsupported media, missing formatters, and no target mutation on encoding failure.
 - JSON formatter typed/untyped round trips with 251 values and no SOQL/DML; all legacy JSON tests retained.
@@ -56,3 +58,9 @@ PMD's IfStmtsMustUseBraces and IfElseStmtsMustUseBraces recommendations flag sho
 ApiResponseFactory and named ApiWriter helpers are covered by 38 new tests: every named success/error status, correlation and no-correlation overloads, custom failures, invalid statuses/contracts rejected before response mutation, bodyless noContent, fresh error envelopes, and 251-item collection preservation. Existing handler tests still verify safe unexpected-error handling and compatibility with the original writer API. ApiResponseFactory and all named writer helpers have full executable-line coverage in this run.
 
 The CLI lost its polling connection near the end of validation. Reading the same job with `sf project deploy report` confirmed Succeeded, 140 tests and no failures or coverage warnings; no duplicate deployment was submitted. PMD also reports the larger public method count for ApiWriter, reflecting the explicit status helpers and their no-correlation overloads. No rule was suppressed or disabled.
+
+## Usage examples
+
+The four local scripts (`http-request-building`, `http-result-reading`, `http-rest-handlers`, and `http-response-helpers`) were compiled and executed as temporary Apex test methods in an isolated copy of the project, alongside the 149 pre-shortcut core tests. Check-only job `0Afbm00000k14n5CAA` passed all 153 tests. The temporary wrapper is not production source. The scripts and metadata were not persisted to the org.
+
+All HTTP `.apex` examples pass the Apex anonymous formatter/parser. Real partner calls in `http-callout`, `http-bulk-callout`, and `http-verb-shortcuts` were not executed; they require an application-owned development endpoint and Named Credential. Shortcut behavior is covered with mocked transports and native HttpCalloutMock tests.
