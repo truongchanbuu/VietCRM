@@ -1,0 +1,7 @@
+# Salesforce local DX MCP: pinned transition setup; upstream EOL 2026-11-02.
+# Skills in .agents/skills are the maintained development workflow.
+[mcp_servers.salesforce_dx]
+command = "npx"
+args = ["-y", "@salesforce/mcp@0.30.15", "--orgs", "dev", "--toolsets", "metadata,testing,code-analysis", "--no-telemetry"]
+startup_timeout_sec = 120
+tool_timeout_sec = 180

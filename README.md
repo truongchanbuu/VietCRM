@@ -1,57 +1,63 @@
-# Salesforce DX Project
+# salesforce-develop-kit
 
-Salesforce DX is a development approach that brings source-driven development, team collaboration, and continuous integration to the Salesforce Platform. Instead of working directly in an org through a web browser, you work with metadata as source files in a local DX project, track changes in version control, and deploy through automated processes.
+A reusable Salesforce developer kit for common development tasks, with extensible Apex modules, tests, examples, and development tooling. This branch contains only the database query and pagination feature. Logging, feature flags, and historical CRM code are preserved on `feature/developer-kit-foundation`.
 
-This project template gets you started with the tools and structure you need to build Salesforce applications using source control, scratch orgs, and the Salesforce CLI.
+## Structure
 
-## Prerequisites
+```text
+force-app/main/default/
+  classes/
+    query/{services,builders,dto,exceptions,factories,interfaces,selectors,strategies,tests}/
+examples/apex/            # Opt-in usage examples
+.agents/skills/           # Pinned Salesforce-maintained development skills
+.codex/config.toml        # Optional local DX MCP connection for dev
+scripts/quality/         # Module and deployment validation
+```
 
-Before you start, make sure you have:
+Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. The query module has no dependencies on other application modules.
 
-- **Salesforce CLI** - Download from [developer.salesforce.com/tools/salesforcecli](https://developer.salesforce.com/tools/salesforcecli). See [Install Salesforce CLI](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli.htm) for details.
-- **VS Code with Salesforce Extension Pack** - See [Installation Instructions](https://developer.salesforce.com/docs/platform/sfvscode-extensions/guide/install.html) for details. Includes the Agentforce Vibes extension.
-- **A development org** - Sign up for a free Developer Edition org [here](https://developer.salesforce.com/signup).
-- **Dev Hub enabled** (optional, required to create scratch orgs) - You can enable Dev Hub in your development org under Setup > Dev Hub. See [Provide Developers Access to Salesforce DX Tools](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_setup_dx_tools.htm).
+## Setup and checks
 
-## Project Structure
+Use Node 22 LTS, Salesforce CLI, Java 21 for Code Analyzer, and an authenticated development org. The project retains API version 67.0.
 
-Your DX project follows this structure:
+```sh
+npm ci
+npm test
+sf plugins install @salesforce/plugin-code-analyzer@5.16.0
+npm run analyze:core
+npm run validate:core -- --target-org dev
+```
 
-- **`force-app/main/default/`** - Your metadata source files live in this default package directory. You can configure additional package directories in the `sfdx-project.json` file.
-- **`config/`** - Scratch org definitions and project settings
-- **`scripts/`** - Automation scripts for common tasks
-- **`sfdx-project.json`** - Project manifest that defines package directories, namespace, API version, and other project-level settings
+`npm test` checks structure, undeclared dependencies, archive references, metadata companions, and formatting. Apex executes on Salesforce; `validate:core` uploads **all local core source and tests** in a check-only deployment, discovers test classes automatically, and enforces Salesforce coverage requirements. It does not persist metadata. A successful local check alone is not an Apex test pass.
 
-See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm).
+For an intentional deployment after validation:
 
-## Get Started
+```sh
+sf project deploy start --source-dir force-app --target-org dev --test-level RunLocalTests --wait 10
+```
 
-Ready to start developing? The [Get Started with Salesforce DX](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_get_started_dx.htm) guide walks you through your first project, from creating a scratch org to creating a simple Apex class or LWC to deploying your code to a sandbox.
+RunLocalTests also includes existing unmanaged tests in the target org. Use a clean scratch org or dedicated sandbox to validate installation independently from unrelated org applications. Moving files here does not delete old components from an existing org.
 
-## Common Salesforce CLI Commands
+## Modules
 
-Here are common CLI commands that you'll use the most:
+| Module | Entry points                                          | Extension points                                         |
+| ------ | ----------------------------------------------------- | -------------------------------------------------------- |
+| Query  | `DbQueryService.execute`, `queryLocator`, `fetchPage` | `IDbPageStrategy` + caller-owned `DbPageStrategyFactory` |
 
-- `sf org login web`: Authorize an org
-- `sf org open`: Open your org in a browser
-- `sf org create scratch`: Create a scratch org
-- `sf project deploy start`: Deploy metadata to your org
-- `sf project retrieve start`: Retrieve metadata from your org
-- `sf template generate <artifact>`: Scaffold new components, such as Apex classes and triggers, LWC components, Lightning apps, and more
-- `sf apex <command>`: Run Apex tests, run anonymous Apex blocks, and view logs
-- `sf data <command>`: Work with test data
-- `sf alias <command>`: Manage org aliases
-- `sf config <command>`: Configure CLI settings
+See [module contracts](docs/modules.md), [pagination](docs/db-query-pagination.md), [AI tooling](docs/salesforce-ai-tooling.md), and [examples](examples/README.md).
 
-## Use Agentforce Vibes to Build Lightning Apps
+## Quality and security
 
-Transform your ideas into custom Lightning apps that extend CRM workflows directly in Lightning Experience. Through natural conversations with Agentforce Vibes, implement custom objects and fields, complex business logic, and dynamic UI components. See [Build a Lightning App Using Agentforce Vibes](https://developer.salesforce.com/docs/platform/einstein-for-devs/guide/lexapp-overview.html).
+Use explicit sharing and user-mode queries for application data; bind values and validate identifiers. Keep DML/SOQL out of loops, keep triggers thin, and test bulk, invalid input, pagination boundaries, and access denial.
 
-## Additional Resources
+CI runs structure/format checks and PMD Recommended rules, failing on severity 1 or 2. Moderate/low findings remain visible in the report, not silently treated as passes. The manual CI Apex job requires environment `salesforce-validation` with secret `SF_AUTH_URL` for a dedicated validation org; it performs only a dry-run. No production credentials belong in Git.
 
-- [Agentforce Vibes Developer Guide](https://developer.salesforce.com/docs/platform/einstein-for-devs/guide/einstein-overview.html)
-- [Salesforce CLI Installation Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/)
-- [Salesforce CLI Plugin Development Guide](https://developer.salesforce.com/docs/platform/salesforce-cli-plugin/guide/conceptual-overview.html)
-- [Salesforce VS Code Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
+## Source synchronization
+
+The query source was synchronized from `dev` on 2026-10-14. The broader source recovery and historical CRM files are preserved on `feature/developer-kit-foundation`. Local recovery snapshots remain ignored under `.local-state/`. Removing repository files does not delete org metadata.
+
+## Feature development
+
+Develop each feature on its own `feature/<module>-<purpose>` branch, created from current `main`. Keep implementation, metadata, tests, examples, and documentation together in that branch. Open a pull request to `main` only when the feature is complete and validated; `main` contains the final integrated version. Use `fix/<module>-<issue>` for fixes.
+
+The broader module extraction is preserved on `feature/developer-kit-foundation`; this feature is maintained on `feature/db-query-pagination`. Future features follow the independent branch workflow in [CONTRIBUTING.md](CONTRIBUTING.md). The local workspace directory and GitHub repository URL are separate from the project metadata name.
