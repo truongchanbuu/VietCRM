@@ -3,13 +3,14 @@
 List<ApiRequest> requests = new List<ApiRequest>();
 for (String path : new List<String>{ '/v1/health', '/v1/status' }) {
   ApiRequest request = new ApiRequest();
-  request.endpoint = 'callout:Partner_API' + path;
+  request.path = path;
   request.timeoutMillis = 5000;
   request.requestId = path;
   requests.add(request);
 }
 try {
-  List<ApiCalloutResult> results = new ApiHttpClient().sendAll(requests);
+  List<ApiCalloutResult> results = new ApiHttpClient('callout:Partner_API')
+    .sendAll(requests);
   Assert.areEqual(requests.size(), results.size());
   for (Integer index = 0; index < results.size(); index++) {
     ApiCalloutResult result = results[index];

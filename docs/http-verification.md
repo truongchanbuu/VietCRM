@@ -2,10 +2,10 @@
 
 Validated on 2026-10-18, branch `feature/http`, against development org alias `dev`.
 
-- `npm test`: passed, two independent modules and 50 Apex classes/interfaces; formatting passed.
-- `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 158 moderate, 246 low. HTTP-only: 0 critical/high, 98 moderate, 123 low. No severity overrides or suppressions were added.
-- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k1MvFCAU`. All 50 local classes/interfaces compiled; 155 tests passed (107 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
-- HTTP aggregate executable-line coverage: 505/506 (99.80%). Statement coverage is not branch coverage and does not prove every integration environment.
+- `npm test`: passed, two independent modules and 51 Apex classes/interfaces; formatting passed.
+- `npm run analyze:core`: passed the critical/high gate. Complete core: 0 critical, 0 high, 159 moderate, 255 low. HTTP-only: 0 critical/high, 99 moderate, 132 low. No severity overrides or suppressions were added.
+- `npm run validate:core -- --target-org dev`: succeeded, check-only job `0Afbm00000k12yBCAQ`. All 51 local classes/interfaces compiled; 163 tests passed (115 HTTP and 48 query), 0 failures, 0 coverage warnings. No metadata persisted.
+- HTTP aggregate executable-line coverage: 540/541 (99.82%). Statement coverage is not branch coverage and does not prove every integration environment.
 
 | HTTP class | Covered lines | Coverage |
 | --- | --- | --- |
@@ -13,17 +13,19 @@ Validated on 2026-10-18, branch `feature/http`, against development org alias `d
 | ApiError | 3/3 | 100.00% |
 | ApiException | 5/5 | 100.00% |
 | ApiGlobalExceptionHandler | 21/21 | 100.00% |
-| ApiHttpClient | 68/68 | 100.00% |
+| ApiHttpClient | 76/76 | 100.00% |
 | ApiHttpTransport | 2/2 | 100.00% |
 | ApiJsonFormatter | 14/14 | 100.00% |
 | ApiRequest | 4/4 | 100.00% |
-| ApiRequestBuilder | 119/120 | 99.17% |
+| ApiRequestBuilder | 146/147 | 99.32% |
 | ApiRequestReader | 69/69 | 100.00% |
 | ApiResponse | 0/0 | No executable lines |
 | ApiResponseFactory | 19/19 | 100.00% |
 | ApiWriter | 140/140 | 100.00% |
 
 ## Exercised behavior
+
+- Client-owned Named Credential/HTTPS service bases, relative paths, prefix/slash joining, root requests, per-request headers/query/payload/correlation, reuse without DTO mutation, and invalid batch configuration rejected before callouts. Legacy full-endpoint clients remain covered.
 
 - Common GET/POST/PUT/PATCH/DELETE shortcuts without a manually constructed request, injected and native transports, JSON null payloads, 251-item payloads, HTTP/callout failures, invalid endpoints, and exhausted callout budget.
 
@@ -61,6 +63,6 @@ The CLI lost its polling connection near the end of validation. Reading the same
 
 ## Usage examples
 
-The four local scripts (`http-request-building`, `http-result-reading`, `http-rest-handlers`, and `http-response-helpers`) were compiled and executed as temporary Apex test methods in an isolated copy of the project, alongside the 149 pre-shortcut core tests. Check-only job `0Afbm00000k14n5CAA` passed all 153 tests. The temporary wrapper is not production source. The scripts and metadata were not persisted to the org.
+All seven HTTP scripts were compiled and executed as temporary Apex test methods in an isolated copy of the current project, with `HttpCalloutMock` replacing native HTTP execution. Check-only job `0Afbm00000k18M2CAI` passed all 170 tests: 163 core tests and seven usage scripts. The temporary wrapper is not production source. No metadata or partner requests were persisted/executed.
 
-All HTTP `.apex` examples pass the Apex anonymous formatter/parser. Real partner calls in `http-callout`, `http-bulk-callout`, and `http-verb-shortcuts` were not executed; they require an application-owned development endpoint and Named Credential. Shortcut behavior is covered with mocked transports and native HttpCalloutMock tests.
+All HTTP `.apex` examples pass the Apex anonymous formatter/parser. Explicitly running `http-callout`, `http-bulk-callout`, or `http-verb-shortcuts` outside the mocked validation makes real partner requests and requires a development endpoint and Named Credential. The verb script includes POST/PUT/PATCH/DELETE operations.

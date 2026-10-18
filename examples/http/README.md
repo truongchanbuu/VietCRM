@@ -5,17 +5,17 @@ These examples use `IApiBodyFormatter`, `ApiJsonFormatter`, and `request.formatt
 ## Common calls
 
 ```apex
-ApiHttpClient client = new ApiHttpClient();
-ApiCalloutResult fetched = client.get('callout:Partner_API/v1/items');
-ApiCalloutResult created = client.post('callout:Partner_API/v1/items', items);
-ApiCalloutResult replaced = client.put('callout:Partner_API/v1/items/example', items);
-ApiCalloutResult updated = client.patch('callout:Partner_API/v1/items/example', items);
-ApiCalloutResult deleted = client.deleteRequest('callout:Partner_API/v1/items/example');
+ApiHttpClient client = new ApiHttpClient('callout:Partner_API');
+ApiCalloutResult fetched = client.get('/v1/items');
+ApiCalloutResult created = client.post('/v1/items', items);
+ApiCalloutResult replaced = client.put('/v1/items/example', items);
+ApiCalloutResult updated = client.patch('/v1/items/example', items);
+ApiCalloutResult deleted = client.deleteRequest('/v1/items/example');
 ```
 
-These are independent operation examples; `items` is application data. POST/PUT/PATCH serialize it as JSON, including JSON null for a null payload. String payloads are JSON strings; pass objects directly rather than pre-serializing them. GET/DELETE have no body. `deleteRequest` is named this way because Apex reserves `delete`. No request DTO or manual builder call is needed. Each shortcut returns the same `ApiCalloutResult` and uses the same endpoint validation, remaining callout budget, transport, and error handling as `send`/`sendAll`.
+These are independent operation examples; `items` is application data. POST/PUT/PATCH serialize it as JSON, including JSON null for a null payload. String payloads are JSON strings; pass objects directly rather than pre-serializing them. GET/DELETE have no body. `deleteRequest` is named this way because Apex reserves `delete`. The client owns the service base endpoint; each shortcut receives only the path. No request DTO or manual builder call is needed. Each shortcut returns the same `ApiCalloutResult` and uses the same endpoint validation, remaining callout budget, transport, and error handling as `send`/`sendAll`.
 
-Use `send(ApiRequest)` when setting custom headers, query parameters, timeouts, correlation, raw bodies, or another formatter. For HEAD or OPTIONS, set `request.method` and use `send`. `sendAll` accepts a list of configured requests for ordered bulk outcomes. `ApiRequestBuilder` runs inside the client; direct use is only an optional preflight/inspection tool, demonstrated by the local request-building script.
+Set `request.path` and use `client.send(ApiRequest)` when setting custom headers, query parameters, timeouts, correlation, raw bodies, or another formatter. For HEAD or OPTIONS, set `request.method` and use `send`. `sendAll` accepts a list of configured requests for ordered bulk outcomes. `ApiRequestBuilder` runs inside the client; direct use is only an optional preflight/inspection tool, demonstrated by the local request-building script.
 
 | Feature | Example |
 | --- | --- |
@@ -118,8 +118,8 @@ ApiResponse safe = ApiGlobalExceptionHandler.toResponse(
 The default client uses `ApiHttpTransport`, which calls native `Http.send`. These two forms are equivalent:
 
 ```apex
-ApiHttpClient defaultClient = new ApiHttpClient();
-ApiHttpClient explicitClient = new ApiHttpClient(new ApiHttpTransport());
+ApiHttpClient defaultClient = new ApiHttpClient('callout:Partner_API');
+ApiHttpClient explicitClient = new ApiHttpClient('callout:Partner_API', new ApiHttpTransport());
 ```
 
 An application transport implements `IApiTransport.send(HttpRequest)` and can delegate to the native adapter. This optional class illustrates the contract; create its metadata companion if you choose to install it:
@@ -133,7 +133,7 @@ public with sharing class PartnerTransport implements IApiTransport {
 }
 ```
 
-Supply it with `new ApiHttpClient(new PartnerTransport())`. Use platform `HttpCalloutMock` for native callout tests or inject an in-memory `IApiTransport` fixture as shown in `ApiBodyFormatterTest`. Custom production transports must preserve one native callout per request for count budgeting. `CalloutException` maps to `CALLOUT_FAILED`; programming exceptions propagate. No automatic retries or asynchronous scheduling occur.
+Supply it with `new ApiHttpClient('callout:Partner_API', new PartnerTransport())`. Use platform `HttpCalloutMock` for native callout tests or inject an in-memory `IApiTransport` fixture as shown in `ApiBodyFormatterTest`. Custom production transports must preserve one native callout per request for count budgeting. `CalloutException` maps to `CALLOUT_FAILED`; programming exceptions propagate. No automatic retries or asynchronous scheduling occur.
 
 ## Formatter extension
 
@@ -150,6 +150,20 @@ List<String> typed = (List<String>) formatter.decode(text, List<String>.class);
 
 To add a format later, implement `getContentType`, `supports`, `encode(Object)`, and `decode(String, System.Type)` on `IApiBodyFormatter`. Keep implementations free of SOQL, DML, callouts, and input mutation. `ApiBodyFormatterTest` contains a sentinel formatter proving substitution; it is not a production format.
 
+A configured request keeps operation data separate from its service:
+
+```apex
+ApiHttpClient client = new ApiHttpClient('callout:CRM_API');
+ApiRequest request = new ApiRequest();
+request.path = '/v1/accounts';
+request.method = 'POST';
+request.payload = account;
+request.formatter = new ApiJsonFormatter();
+ApiCalloutResult result = client.send(request);
+```
+
+Here `account` is application data. `new ApiHttpClient('https://example.com/crm')` works the same way; paths append to its `/crm` prefix. `request.queryParameters` owns query values, and the base has no query string. Request objects are not mutated during sending. Existing unbound clients still support full `request.endpoint` values; use `path` for clients configured with a base.
+
 Select an application-owned formatter explicitly at each boundary:
 
 ```apex
@@ -157,7 +171,7 @@ Select an application-owned formatter explicitly at each boundary:
 request.formatter = formatter;
 request.payload = values;
 request.body = null;
-HttpRequest prepared = ApiRequestBuilder.build(request);
+ApiCalloutResult outcome = client.send(request);
 Object inbound = ApiRequestReader.read(restRequest, formatter);
 Object typedInbound = ApiRequestReader.readAs(restRequest, List<String>.class, formatter);
 Object upstream = outcome.read(formatter);
@@ -165,7 +179,7 @@ Object typedUpstream = outcome.readAs(List<String>.class, formatter);
 ApiWriter.write(restResponse, 200, ApiResponseFactory.success(values, requestId), formatter);
 ```
 
-This is a wiring fragment; `request`, `restRequest`, `outcome`, and `restResponse` are the corresponding toolkit/native objects from the scripts. The writer formats the complete `ApiResponse` envelope. Raw requests instead set `body`, clear `payload`/`formatter`, and supply Content-Type. An explicit Content-Type must be supported by the selected formatter. The reader checks Content-Type; upstream result decoding uses the formatter explicitly chosen by the caller.
+This is a wiring fragment; `request`, `restRequest`, and `restResponse` are the corresponding toolkit/native objects from the scripts. The writer formats the complete `ApiResponse` envelope. Raw requests instead set `body`, clear `payload`/`formatter`, and supply Content-Type. An explicit Content-Type must be supported by the selected formatter. The reader checks Content-Type; upstream result decoding uses the formatter explicitly chosen by the caller.
 
 Named response helpers and `ApiGlobalExceptionHandler` use JSON. When implementing a non-JSON endpoint later, write its error envelopes explicitly with the same formatter and an application-selected safe status; `toResponse` produces only the envelope, not a status. There is no automatic Accept negotiation, global registry, SOAP protocol implementation, or binary/multipart support.
 

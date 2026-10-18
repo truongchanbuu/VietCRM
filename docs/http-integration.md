@@ -20,11 +20,26 @@ The independent `http` module provides outbound HTTP orchestration and explicit 
 
 The builder supports GET, HEAD, POST, PUT, PATCH, DELETE, and OPTIONS. It rejects invalid endpoints, whitespace/fragments, URL user-info credentials, unsupported methods, GET/HEAD bodies, timeouts outside 1–120,000 ms, invalid/newline/duplicate headers, and platform-managed headers. Query values are URL encoded; names are sorted for deterministic construction. Supply Content-Type explicitly for raw POST/PUT/PATCH bodies; formatter payloads default to their formatter’s Content-Type; the toolkit does not assume all outbound bodies are JSON. Authentication remains with the Named Credential configuration or a developer-owned transport.
 
+## Client and request responsibilities
+
+The client identifies the service and chooses how HTTP is executed. The request describes one operation on that service. Keep application business rules in the consuming application.
+
+| Component | Responsibility | Why it exists |
+| --- | --- | --- |
+| `ApiHttpClient` | Own base endpoint and transport; offer common verbs and ordered batch sending | Reuse one service configuration across operations |
+| `ApiRequest` | Hold path, method, headers/query, payload/formatter, timeout and correlation | Customize an operation without repeating service configuration |
+| `ApiRequestBuilder` | Join base/path, validate HTTP configuration, create native `HttpRequest` | Share preparation across shortcuts and batches; used internally |
+| `IApiBodyFormatter` / `ApiJsonFormatter` | Convert objects to/from text and identify supported media | Add a text representation without changing execution |
+| `IApiTransport` / `ApiHttpTransport` | Execute one native request | Substitute execution in tests or an application adapter |
+| `ApiCalloutResult` | Retain HTTP outcome, safe failure metadata, and explicit body reading | Let the caller decide how to consume upstream data |
+
+Inbound REST handlers serve a separate boundary: `ApiRequestReader` reads inbound bodies, `ApiResponseFactory` creates envelopes, `ApiWriter` writes status/headers/body, and `ApiGlobalExceptionHandler` maps exceptions to safe public errors. There is no additional service/factory hierarchy around the outbound client.
+
 ## Outbound usage
 
 ```apex
-ApiHttpClient client = new ApiHttpClient();
-ApiCalloutResult outcome = client.post('callout:Partner_API/v1/bulk', items);
+ApiHttpClient client = new ApiHttpClient('callout:Partner_API');
+ApiCalloutResult outcome = client.post('/v1/bulk', items);
 if (outcome.isSuccess()) {
     Object acknowledgment = outcome.readJson();
 } else {
@@ -32,21 +47,25 @@ if (outcome.isSuccess()) {
 }
 ```
 
-`get(endpoint)`, `post(endpoint, payload)`, `put(endpoint, payload)`, `patch(endpoint, payload)`, and `deleteRequest(endpoint)` cover common calls. POST/PUT/PATCH use `ApiJsonFormatter`; null payloads encode as JSON null. String payloads encode as JSON strings; pass objects directly instead of pre-serializing. GET/DELETE have no body. Apex reserves `delete`, so the DELETE helper is named `deleteRequest`. These helpers delegate to the same validated `send`/`sendAll` path; no manual request builder call is required.
+`get(path)`, `post(path, payload)`, `put(path, payload)`, `patch(path, payload)`, and `deleteRequest(path)` cover common calls. POST/PUT/PATCH use `ApiJsonFormatter`; null payloads encode as JSON null. String payloads encode as JSON strings; pass objects directly instead of pre-serializing. GET/DELETE have no body. Apex reserves `delete`, so the DELETE helper is named `deleteRequest`. These helpers delegate to the same validated `send`/`sendAll` path; no manual request builder call is required.
 
-For custom headers, query parameters, timeout, correlation, raw bodies, or a selected formatter, use the full configuration path:
+For custom headers, query parameters, timeout, correlation, raw bodies, or a selected formatter, use the same client with a configured request:
 
 ```apex
 ApiRequest request = new ApiRequest();
-request.endpoint = 'callout:Partner_API/v1/bulk';
+request.path = '/v1/bulk';
 request.method = 'POST';
 request.requestId = 'application-correlation-id';
 request.headers.put('X-Request-Id', request.requestId);
 request.timeoutMillis = 5000;
 request.formatter = new ApiJsonFormatter();
 request.payload = items;
-ApiCalloutResult outcome = new ApiHttpClient().send(request);
+ApiCalloutResult outcome = client.send(request);
 ```
+
+A client can use a Named Credential base (`callout:CRM_API`) or HTTPS base (`https://example.com/crm`). Use slash-prefixed paths. A base path prefix is retained: `https://example.com/crm/` plus `/v1/accounts` becomes `https://example.com/crm/v1/accounts`. Trailing base slashes are normalized. Null/empty request paths address the base; `/` addresses its trailing slash. Put query parameters on the request rather than the base. The builder prepares a native request without changing the DTO, so the same operation can be reused with another client.
+
+Inject execution with `new ApiHttpClient('callout:CRM_API', transport)`. Existing unbound constructors remain available: `new ApiHttpClient()` or `new ApiHttpClient(transport)` use full `request.endpoint` values, and their shortcuts accept full endpoints. For service-bound clients, use `request.path`; supplying `request.endpoint` is rejected as conflicting service configuration. A relative path requires a client base. If explicitly testing a null one-argument constructor, cast it to `String` or `IApiTransport` to select the intended overload.
 
 The Named Credential and its access assignments must already exist in the target org. No credential material is stored in source. `requestId` is copied into the result; add an outbound correlation header explicitly if the partner requires one.
 
@@ -128,11 +147,11 @@ For envelope-only consumers, use `ApiResponseFactory.success(data, requestId)`, 
 
 ```apex
 ApiRequest request = new ApiRequest();
-request.endpoint = 'callout:Partner_API/v1/bulk';
+request.path = '/v1/bulk';
 request.method = 'POST';
 request.formatter = new ApiJsonFormatter();
 request.payload = items;
-ApiCalloutResult result = new ApiHttpClient().send(request);
+ApiCalloutResult result = new ApiHttpClient('callout:Partner_API').send(request);
 List<MyDto> decoded = (List<MyDto>) result.readAs(List<MyDto>.class, request.formatter);
 ```
 

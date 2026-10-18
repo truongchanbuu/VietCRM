@@ -15,7 +15,7 @@ examples/apex/            # Opt-in usage examples
 scripts/quality/         # Module and deployment validation
 ```
 
-Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. Both modules have no dependencies on other application modules.
+Apex names are global within the package: folders organize ownership, not namespaces. Keep class names unique and include each class's metadata companion. `config/modules.json` declares module dependencies and object ownership. Both modules have no dependencies on other application modules. HTTP clients own their service base (for example, `new ApiHttpClient('callout:CRM_API')`); operations supply relative paths such as `client.get('/v1/accounts')`.
 
 ## Setup and checks
 
